@@ -475,6 +475,10 @@ a:focus-visible {
 }
 
 /* Projects */
+.project-pdf-action {
+  margin: -12px 0 30px;
+}
+
 .projects-page.has-detail {
   padding: 0;
   overflow: hidden;

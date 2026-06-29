@@ -22,7 +22,7 @@ function Home({ onNavigate }) {
 
       <div className="hero-visual">
         <div className="profile-frame">
-          <img src="/profile.png" alt="Yavuz Bahadır İnci" className="profile-photo" />
+          <img src="/profile.jpg" alt="Yavuz Bahadır İnci" className="profile-photo" />
         </div>
         <div className="hero-badge">
           <span className="status-dot" aria-hidden="true" />

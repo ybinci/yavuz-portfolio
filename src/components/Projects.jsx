@@ -51,6 +51,17 @@ function Projects() {
             </p>
           </header>
 
+          <div className="project-pdf-action">
+            <a
+              className="button button-primary"
+              href="/portfolio.pdf"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Portföy PDF Görüntüle <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+
           <div className="project-grid">
             {projects.map((project, index) => (
               <ProjectCard
