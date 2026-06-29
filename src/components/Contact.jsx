@@ -13,14 +13,14 @@ function Contact() {
       <div className="contact-actions">
         <a
           className="contact-action"
-          href="https://wa.me/905519777277"
+          href="https://wa.me/905519772727"
           target="_blank"
           rel="noreferrer"
         >
           <span className="contact-action-mark" aria-hidden="true">01</span>
           <span className="contact-action-copy">
             <strong>WhatsApp’tan Yaz</strong>
-            <small>Hızlıca iletişime geçin</small>
+            <small>+90 551 977 2727</small>
           </span>
           <span className="contact-action-arrow" aria-hidden="true">↗</span>
         </a>
