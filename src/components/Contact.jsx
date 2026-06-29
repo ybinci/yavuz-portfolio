@@ -25,11 +25,11 @@ function Contact() {
           <span className="contact-action-arrow" aria-hidden="true">↗</span>
         </a>
 
-        <a className="contact-action" href="mailto:bordey61@icloud.com">
+        <a className="contact-action" href="mailto:y.inci2022@gtu.edu.tr">
           <span className="contact-action-mark" aria-hidden="true">02</span>
           <span className="contact-action-copy">
             <strong>Mail Gönder</strong>
-            <small>bordey61@icloud.com</small>
+            <small>y.inci2022@gtu.edu.tr</small>
           </span>
           <span className="contact-action-arrow" aria-hidden="true">↗</span>
         </a>
