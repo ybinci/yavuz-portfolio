@@ -10,21 +10,42 @@ function Contact() {
         </p>
       </div>
 
-      <div className="contact-list">
-        <a href="mailto:y.inci2022@gtu.edu.tr">
-          <span>Mail</span>
-          <strong>y.inci2022@gtu.edu.tr</strong>
-          <b aria-hidden="true">↗</b>
+      <div className="contact-actions">
+        <a
+          className="contact-action"
+          href="https://wa.me/905519777277"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="contact-action-mark" aria-hidden="true">01</span>
+          <span className="contact-action-copy">
+            <strong>WhatsApp’tan Yaz</strong>
+            <small>Hızlıca iletişime geçin</small>
+          </span>
+          <span className="contact-action-arrow" aria-hidden="true">↗</span>
         </a>
-        <a href="https://www.linkedin.com/in/yavuzbahadır" target="_blank" rel="noreferrer">
-          <span>LinkedIn</span>
-          <strong>linkedin.com/in/yavuzbahadır</strong>
-          <b aria-hidden="true">↗</b>
+
+        <a className="contact-action" href="mailto:bordey61@icloud.com">
+          <span className="contact-action-mark" aria-hidden="true">02</span>
+          <span className="contact-action-copy">
+            <strong>Mail Gönder</strong>
+            <small>bordey61@icloud.com</small>
+          </span>
+          <span className="contact-action-arrow" aria-hidden="true">↗</span>
         </a>
-        <a href="tel:+905519772727">
-          <span>Telefon</span>
-          <strong>+90 551 977 2727</strong>
-          <b aria-hidden="true">↗</b>
+
+        <a
+          className="contact-action"
+          href="https://www.linkedin.com/in/yavuzbahadır"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span className="contact-action-mark" aria-hidden="true">03</span>
+          <span className="contact-action-copy">
+            <strong>LinkedIn</strong>
+            <small>Profesyonel profilimi inceleyin</small>
+          </span>
+          <span className="contact-action-arrow" aria-hidden="true">↗</span>
         </a>
       </div>
     </section>

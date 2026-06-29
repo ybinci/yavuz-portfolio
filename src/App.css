@@ -928,43 +928,69 @@ a:focus-visible {
   line-height: 1.75;
 }
 
-.contact-list {
-  border-top: 1px solid rgba(255, 255, 255, 0.17);
+.contact-actions {
+  display: grid;
+  gap: 12px;
 }
 
-.contact-list a {
-  padding: 23px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.17);
+.contact-action {
+  min-height: 92px;
+  padding: 18px;
+  border: 1px solid rgba(54, 224, 190, 0.2);
+  border-radius: 16px;
   color: #fff;
+  background: rgba(255, 255, 255, 0.045);
   text-decoration: none;
   display: grid;
-  grid-template-columns: 80px 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 18px;
+  gap: 15px;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
-.contact-list a:hover strong,
-.contact-list a:hover b {
-  color: var(--accent);
+.contact-action:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  background: rgba(54, 224, 190, 0.09);
 }
 
-.contact-list span {
-  color: var(--accent);
-  font-size: 0.72rem;
-  font-weight: 850;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.contact-action-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  font-size: 0.69rem;
+  font-weight: 900;
 }
 
-.contact-list strong {
-  font-size: clamp(0.86rem, 1.5vw, 1rem);
+.contact-action-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.contact-action-copy strong {
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.contact-action-copy small {
+  color: rgba(225, 247, 243, 0.6);
+  font-size: 0.74rem;
   overflow-wrap: anywhere;
-  transition: color 180ms ease;
 }
 
-.contact-list b {
+.contact-action-arrow {
+  color: var(--accent);
   font-size: 1.2rem;
-  transition: color 180ms ease;
+  transition: transform 180ms ease;
+}
+
+.contact-action:hover .contact-action-arrow {
+  transform: translate(3px, -3px);
 }
 
 @media (max-width: 900px) {
@@ -1180,18 +1206,10 @@ a:focus-visible {
     min-height: 165px;
   }
 
-  .contact-list a {
-    grid-template-columns: 1fr auto;
-    gap: 7px 12px;
-  }
-
-  .contact-list span {
-    grid-column: 1 / -1;
-  }
-
-  .contact-list b {
-    grid-column: 2;
-    grid-row: 2;
+  .contact-action {
+    min-height: 82px;
+    padding: 15px;
+    gap: 12px;
   }
 }
 
