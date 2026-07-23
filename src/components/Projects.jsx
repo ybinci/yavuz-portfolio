@@ -5,6 +5,7 @@ import ProjectCard from './ProjectCard'
 import ProjectDetail from './ProjectDetail'
 
 const projectHashPrefix = '#project-'
+const staticProjects = fallbackProjects.map(normalizeProject)
 
 function getInitialProjectSlug() {
   if (!window.location.hash.startsWith(projectHashPrefix)) return null
@@ -43,8 +44,31 @@ function normalizeProject(project) {
   }
 }
 
+function hasSameProjectIdentity(project, candidate) {
+  return (
+    (candidate.slug && project.slug === candidate.slug)
+    || (candidate.id && project.id === candidate.id)
+  )
+}
+
+function mergeProjects(staticProjectList, supabaseProjectList) {
+  return supabaseProjectList.reduce((mergedProjects, supabaseProject) => {
+    const existingIndex = mergedProjects.findIndex((project) => (
+      hasSameProjectIdentity(project, supabaseProject)
+    ))
+
+    if (existingIndex >= 0) {
+      const nextProjects = [...mergedProjects]
+      nextProjects[existingIndex] = supabaseProject
+      return nextProjects
+    }
+
+    return [...mergedProjects, supabaseProject]
+  }, staticProjectList)
+}
+
 function Projects() {
-  const [projectList, setProjectList] = useState(fallbackProjects)
+  const [projectList, setProjectList] = useState(staticProjects)
   const [selectedSlug, setSelectedSlug] = useState(getInitialProjectSlug)
   const [isLoading, setIsLoading] = useState(hasSupabaseConfig)
   const selectedProject = useMemo(
@@ -57,7 +81,7 @@ function Projects() {
 
     async function loadProjects() {
       if (!hasSupabaseConfig || !supabase) {
-        setProjectList(fallbackProjects)
+        setProjectList(staticProjects)
         setIsLoading(false)
         return
       }
@@ -71,14 +95,17 @@ function Projects() {
         if (error) throw error
 
         if (isMounted) {
-          const publishedProjects = Array.isArray(data) ? data.map(normalizeProject) : []
-          setProjectList(publishedProjects.length > 0 ? publishedProjects : fallbackProjects)
+          const publishedProjects = Array.isArray(data)
+            ? data.map(normalizeProject).filter((project) => project.slug || project.id)
+            : []
+
+          setProjectList(mergeProjects(staticProjects, publishedProjects))
           setIsLoading(false)
         }
       } catch (error) {
         console.warn('Supabase projects fallback:', error)
         if (isMounted) {
-          setProjectList(fallbackProjects)
+          setProjectList(staticProjects)
           setIsLoading(false)
         }
       }
