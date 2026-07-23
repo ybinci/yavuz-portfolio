@@ -945,6 +945,40 @@ a:focus-visible {
   gap: clamp(28px, 6vw, 70px);
 }
 
+.admin-session-card {
+  padding: 18px;
+  border: 1px solid rgba(54, 224, 190, 0.2);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-session-card p {
+  margin: 0;
+  color: rgba(225, 247, 243, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.admin-session-card span {
+  margin-top: 4px;
+  color: var(--accent);
+  display: block;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.admin-helper-text {
+  max-width: 820px;
+  margin: -12px 0 28px;
+  color: rgba(225, 247, 243, 0.68);
+  line-height: 1.72;
+}
+
 .admin-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);

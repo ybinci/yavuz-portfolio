@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient'
 
 const initialProjectForm = {
@@ -23,33 +23,80 @@ const splitListField = (value) => (
     .filter(Boolean)
 )
 
+function createProjectPayload(projectForm) {
+  return {
+    slug: projectForm.slug.trim(),
+    title: projectForm.title.trim(),
+    category: projectForm.category.trim(),
+    summary: projectForm.summary.trim(),
+    description: projectForm.description.trim(),
+    role: projectForm.role.trim(),
+    tools: splitListField(projectForm.tools),
+    images: splitListField(projectForm.images),
+    pdf_url: projectForm.pdfUrl.trim() || null,
+    portfolio_url: projectForm.portfolioUrl.trim() || null,
+    github_url: projectForm.githubUrl.trim() || null,
+    status: projectForm.status,
+  }
+}
+
 function Admin() {
-  const [credentials, setCredentials] = useState({ username: '', password: '' })
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loginMessage, setLoginMessage] = useState('')
+  const [authForm, setAuthForm] = useState({ email: '', password: '' })
+  const [session, setSession] = useState(null)
+  const [isAuthReady, setIsAuthReady] = useState(false)
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
+  const [authMessage, setAuthMessage] = useState({ type: '', message: '' })
   const [projectForm, setProjectForm] = useState(initialProjectForm)
   const [previewProject, setPreviewProject] = useState(null)
   const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' })
   const [isSaving, setIsSaving] = useState(false)
 
-  const generatedProject = useMemo(() => ({
-    slug: projectForm.slug,
-    title: projectForm.title,
-    category: projectForm.category,
-    summary: projectForm.summary,
-    description: projectForm.description,
-    role: projectForm.role,
-    tools: splitListField(projectForm.tools),
-    images: splitListField(projectForm.images),
-    pdf_url: projectForm.pdfUrl || null,
-    portfolio_url: projectForm.portfolioUrl || null,
-    github_url: projectForm.githubUrl || null,
-    status: projectForm.status,
-  }), [projectForm])
+  const isAuthenticated = Boolean(session?.user)
+  const livePreviewProject = useMemo(() => createProjectPayload(projectForm), [projectForm])
 
-  const updateCredentials = (event) => {
+  useEffect(() => {
+    if (!hasSupabaseConfig || !supabase) {
+      setIsAuthReady(true)
+      setAuthMessage({
+        type: 'error',
+        message:
+          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+      })
+      return undefined
+    }
+
+    let isMounted = true
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!isMounted) return
+
+      if (error) {
+        setAuthMessage({ type: 'error', message: error.message })
+      }
+
+      setSession(data.session)
+      setIsAuthReady(true)
+    })
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+
+      if (!nextSession) {
+        setProjectForm(initialProjectForm)
+        setPreviewProject(null)
+        setSubmitStatus({ type: '', message: '' })
+      }
+    })
+
+    return () => {
+      isMounted = false
+      authListener.subscription.unsubscribe()
+    }
+  }, [])
+
+  const updateAuthForm = (event) => {
     const { name, value } = event.target
-    setCredentials((current) => ({ ...current, [name]: value }))
+    setAuthForm((current) => ({ ...current, [name]: value }))
   }
 
   const updateProjectForm = (event) => {
@@ -57,23 +104,71 @@ function Admin() {
     setProjectForm((current) => ({ ...current, [name]: value }))
   }
 
-  const handleLogin = (event) => {
+  const handleLogin = async (event) => {
     event.preventDefault()
+    setAuthMessage({ type: '', message: '' })
 
-    // temporary demo auth: Bu kontrol sadece admin panel UI taslağı içindir.
-    if (credentials.username === 'admin' && credentials.password === 'demo123') {
-      setIsAuthenticated(true)
-      setLoginMessage('')
+    if (!hasSupabaseConfig || !supabase) {
+      setAuthMessage({
+        type: 'error',
+        message:
+          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+      })
       return
     }
 
-    setLoginMessage('Demo giriş için kullanıcı adı admin, şifre demo123 olarak ayarlandı.')
+    setIsAuthLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: authForm.email.trim(),
+        password: authForm.password,
+      })
+
+      if (error) throw error
+
+      setAuthForm((current) => ({ ...current, password: '' }))
+      setAuthMessage({ type: 'success', message: 'Giriş başarılı.' })
+    } catch (error) {
+      setAuthMessage({ type: 'error', message: error.message })
+    } finally {
+      setIsAuthLoading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    if (!hasSupabaseConfig || !supabase) return
+
+    setIsAuthLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signOut()
+
+      if (error) throw error
+
+      setAuthForm({ email: '', password: '' })
+      setAuthMessage({ type: 'success', message: 'Çıkış yapıldı.' })
+    } catch (error) {
+      setAuthMessage({ type: 'error', message: error.message })
+    } finally {
+      setIsAuthLoading(false)
+    }
   }
 
   const handleProjectSubmit = async (event) => {
     event.preventDefault()
-    setPreviewProject(generatedProject)
+
+    const projectPayload = createProjectPayload(projectForm)
+    setPreviewProject(projectPayload)
     setSubmitStatus({ type: '', message: '' })
+
+    if (!isAuthenticated) {
+      setSubmitStatus({
+        type: 'error',
+        message: 'Proje kaydetmek için Supabase Auth ile giriş yapmalısınız.',
+      })
+      return
+    }
 
     if (!hasSupabaseConfig || !supabase) {
       setSubmitStatus({
@@ -89,18 +184,20 @@ function Admin() {
     try {
       const { error } = await supabase
         .from('projects')
-        .insert([generatedProject])
+        .insert([projectPayload])
 
       if (error) throw error
 
       setSubmitStatus({
         type: 'success',
-        message: 'Proje Supabase projects tablosuna başarıyla kaydedildi.',
+        message: 'Proje başarıyla kaydedildi.',
       })
+      setProjectForm(initialProjectForm)
+      setPreviewProject(projectPayload)
     } catch (error) {
       setSubmitStatus({
         type: 'error',
-        message: `Kayıt sırasında hata oluştu: ${error.message}`,
+        message: error.message,
       })
     } finally {
       setIsSaving(false)
@@ -111,23 +208,23 @@ function Admin() {
     <section className="page-panel admin-page" aria-labelledby="admin-title">
       {!isAuthenticated ? (
         <div className="admin-login-card">
-          <p className="eyebrow">Admin panel taslağı</p>
-          <h1 id="admin-title">Proje yönetimi</h1>
+          <p className="eyebrow">Supabase Auth</p>
+          <h1 id="admin-title">Admin girişi</h1>
           <p>
-            Bu ekran şimdilik demo giriş ile çalışır. Proje ekleme formu Supabase
-            bağlantısı hazır olduğunda doğrudan projects tablosuna kayıt gönderir.
+            Proje ekleme formuna erişmek için Supabase Auth üzerinde tanımlı admin
+            hesabınızla giriş yapın.
           </p>
 
           <form className="admin-login-form" onSubmit={handleLogin}>
             <label>
-              Kullanıcı adı
+              E-posta
               <input
-                name="username"
-                type="text"
-                value={credentials.username}
-                onChange={updateCredentials}
-                placeholder="admin"
-                autoComplete="username"
+                name="email"
+                type="email"
+                value={authForm.email}
+                onChange={updateAuthForm}
+                placeholder="admin@example.com"
+                autoComplete="email"
               />
             </label>
             <label>
@@ -135,14 +232,34 @@ function Admin() {
               <input
                 name="password"
                 type="password"
-                value={credentials.password}
-                onChange={updateCredentials}
-                placeholder="demo123"
+                value={authForm.password}
+                onChange={updateAuthForm}
+                placeholder="••••••••"
                 autoComplete="current-password"
               />
             </label>
-            {loginMessage && <p className="admin-message">{loginMessage}</p>}
-            <button className="button button-primary" type="submit">Giriş yap</button>
+            {authMessage.message && (
+              <p className={`admin-submit-message ${authMessage.type}`}>
+                {authMessage.message}
+              </p>
+            )}
+            <div className="admin-form-actions">
+              <button
+                className="button button-primary"
+                type="submit"
+                disabled={isAuthLoading || !isAuthReady}
+              >
+                {isAuthLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+              </button>
+              <button
+                className="button button-outline"
+                type="button"
+                disabled
+                onClick={handleLogout}
+              >
+                Çıkış Yap
+              </button>
+            </div>
           </form>
         </div>
       ) : (
@@ -152,12 +269,27 @@ function Admin() {
               <p className="eyebrow">Supabase projects tablosu</p>
               <h1 id="admin-title">Yeni Proje Ekle</h1>
             </div>
-            <p>
-              Form gönderildiğinde alanlar Supabase şemasına uygun objeye dönüştürülür.
-              `tools` ve `images` değerleri virgül veya satır bazlı ayrıştırılarak array
-              olarak kaydedilir.
-            </p>
+            <div className="admin-session-card">
+              <p>
+                Giriş yapan kullanıcı:
+                <span>{session.user.email}</span>
+              </p>
+              <button
+                className="button button-outline"
+                type="button"
+                disabled={isAuthLoading}
+                onClick={handleLogout}
+              >
+                Çıkış Yap
+              </button>
+            </div>
           </header>
+
+          <p className="admin-helper-text">
+            Form gönderildiğinde alanlar Supabase şemasına uygun objeye dönüştürülür.
+            Tools ve images değerleri virgül veya satır bazlı ayrıştırılarak array
+            olarak kaydedilir.
+          </p>
 
           <div className="admin-grid">
             <form className="admin-project-form" onSubmit={handleProjectSubmit}>
@@ -194,8 +326,8 @@ function Admin() {
               <label>
                 Durum
                 <select name="status" value={projectForm.status} onChange={updateProjectForm}>
-                  <option value="draft">draft</option>
                   <option value="published">published</option>
+                  <option value="draft">draft</option>
                 </select>
               </label>
               <label className="admin-field-wide">
@@ -287,7 +419,7 @@ function Admin() {
 
               <div className="admin-form-actions">
                 <button className="button button-primary" type="submit" disabled={isSaving}>
-                  {isSaving ? 'Kaydediliyor...' : 'Supabase’e kaydet'}
+                  {isSaving ? 'Kaydediliyor...' : 'Projeyi Kaydet'}
                 </button>
                 <button
                   className="button button-outline"
@@ -304,10 +436,10 @@ function Admin() {
             </form>
 
             <aside className="admin-preview" aria-live="polite">
-              <p className="eyebrow">JSON önizleme</p>
+              <p className="eyebrow">Önizleme</p>
               <h2>Supabase’e gönderilecek veri</h2>
               <pre>
-                {JSON.stringify(previewProject ?? generatedProject, null, 2)}
+                {JSON.stringify(previewProject ?? livePreviewProject, null, 2)}
               </pre>
             </aside>
           </div>
