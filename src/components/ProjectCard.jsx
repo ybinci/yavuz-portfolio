@@ -8,7 +8,10 @@ function ProjectCard({ project, index, onSelect }) {
     >
       <span className="project-number">{String(index + 1).padStart(2, '0')}</span>
       <div className="project-content">
-        <span className="project-category">{project.category}</span>
+        <div className="project-card-meta">
+          <span className="project-category">{project.category}</span>
+          {project.status && <span className="project-status">{project.status}</span>}
+        </div>
         <h2>{project.title}</h2>
         <p>{project.summary}</p>
         <span className="project-card-action">Projeyi incele</span>
@@ -19,4 +22,3 @@ function ProjectCard({ project, index, onSelect }) {
 }
 
 export default ProjectCard
-

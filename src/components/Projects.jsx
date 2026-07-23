@@ -65,7 +65,7 @@ function Projects() {
           <div className="project-grid">
             {projects.map((project, index) => (
               <ProjectCard
-                key={project.slug}
+                key={project.id}
                 project={project}
                 index={index}
                 onSelect={selectProject}

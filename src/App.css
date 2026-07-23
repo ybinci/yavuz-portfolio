@@ -522,14 +522,33 @@ a:focus-visible {
   align-self: end;
 }
 
-.project-category {
+.project-card-meta {
   margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-category {
   color: var(--accent-dark);
-  display: block;
   font-size: 0.69rem;
   font-weight: 850;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.project-status,
+.project-detail-status {
+  width: max-content;
+  padding: 6px 9px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  color: var(--accent-dark);
+  background: rgba(54, 224, 190, 0.1);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
 }
 
 .project-content h2 {
@@ -638,11 +657,16 @@ a:focus-visible {
 
 .project-detail-hero h1 {
   max-width: 760px;
-  margin: 0;
+  margin: 0 0 18px;
   color: #fff;
   font-size: clamp(2.6rem, 6vw, 5.4rem);
   line-height: 0.98;
   letter-spacing: -0.055em;
+}
+
+.project-detail-status {
+  color: var(--accent);
+  background: rgba(54, 224, 190, 0.12);
 }
 
 .project-detail-hero p {
@@ -676,6 +700,13 @@ a:focus-visible {
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.82;
+}
+
+.project-detail-actions {
+  margin-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .project-meta {
