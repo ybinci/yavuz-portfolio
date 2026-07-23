@@ -213,6 +213,12 @@ a:focus-visible {
   transform: translateY(-2px);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
 .button-primary {
   background: var(--accent);
   color: var(--ink);
@@ -477,6 +483,12 @@ a:focus-visible {
 /* Projects */
 .project-pdf-action {
   margin: -12px 0 30px;
+}
+
+.project-loading {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .projects-page.has-detail {
@@ -902,6 +914,27 @@ a:focus-visible {
   color: var(--accent);
   font-size: 0.84rem;
   line-height: 1.55;
+}
+
+.admin-submit-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 13px 15px;
+  border-radius: 13px;
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.admin-submit-message.success {
+  color: var(--ink);
+  background: var(--accent);
+}
+
+.admin-submit-message.error {
+  color: #ffd4d4;
+  background: rgba(255, 92, 92, 0.12);
+  border: 1px solid rgba(255, 130, 130, 0.28);
 }
 
 .admin-heading {

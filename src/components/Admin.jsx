@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { hasSupabaseConfig, supabase } from '../lib/supabaseClient'
 
 const initialProjectForm = {
   title: '',
@@ -28,9 +29,10 @@ function Admin() {
   const [loginMessage, setLoginMessage] = useState('')
   const [projectForm, setProjectForm] = useState(initialProjectForm)
   const [previewProject, setPreviewProject] = useState(null)
+  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' })
+  const [isSaving, setIsSaving] = useState(false)
 
   const generatedProject = useMemo(() => ({
-    id: projectForm.slug || 'new-project-id',
     slug: projectForm.slug,
     title: projectForm.title,
     category: projectForm.category,
@@ -39,9 +41,9 @@ function Admin() {
     role: projectForm.role,
     tools: splitListField(projectForm.tools),
     images: splitListField(projectForm.images),
-    pdfUrl: projectForm.pdfUrl || null,
-    portfolioUrl: projectForm.portfolioUrl || null,
-    githubUrl: projectForm.githubUrl || null,
+    pdf_url: projectForm.pdfUrl || null,
+    portfolio_url: projectForm.portfolioUrl || null,
+    github_url: projectForm.githubUrl || null,
     status: projectForm.status,
   }), [projectForm])
 
@@ -68,9 +70,41 @@ function Admin() {
     setLoginMessage('Demo giriş için kullanıcı adı admin, şifre demo123 olarak ayarlandı.')
   }
 
-  const handleProjectSubmit = (event) => {
+  const handleProjectSubmit = async (event) => {
     event.preventDefault()
     setPreviewProject(generatedProject)
+    setSubmitStatus({ type: '', message: '' })
+
+    if (!hasSupabaseConfig || !supabase) {
+      setSubmitStatus({
+        type: 'error',
+        message:
+          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+      })
+      return
+    }
+
+    setIsSaving(true)
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .insert([generatedProject])
+
+      if (error) throw error
+
+      setSubmitStatus({
+        type: 'success',
+        message: 'Proje Supabase projects tablosuna başarıyla kaydedildi.',
+      })
+    } catch (error) {
+      setSubmitStatus({
+        type: 'error',
+        message: `Kayıt sırasında hata oluştu: ${error.message}`,
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -80,8 +114,8 @@ function Admin() {
           <p className="eyebrow">Admin panel taslağı</p>
           <h1 id="admin-title">Proje yönetimi</h1>
           <p>
-            Bu ekran şimdilik yalnızca arayüz ve veri önizleme amacıyla hazırlandı. Gerçek
-            kayıt işlemi daha sonra Supabase veya farklı bir backend ile bağlanabilir.
+            Bu ekran şimdilik demo giriş ile çalışır. Proje ekleme formu Supabase
+            bağlantısı hazır olduğunda doğrudan projects tablosuna kayıt gönderir.
           </p>
 
           <form className="admin-login-form" onSubmit={handleLogin}>
@@ -115,12 +149,13 @@ function Admin() {
         <div className="admin-workspace">
           <header className="admin-heading">
             <div>
-              <p className="eyebrow">Yeni proje taslağı</p>
+              <p className="eyebrow">Supabase projects tablosu</p>
               <h1 id="admin-title">Yeni Proje Ekle</h1>
             </div>
             <p>
-              Form gönderildiğinde veri kaydedilmez; sadece gelecekte backend’e gönderilecek
-              proje objesinin JSON önizlemesi oluşturulur.
+              Form gönderildiğinde alanlar Supabase şemasına uygun objeye dönüştürülür.
+              `tools` ve `images` değerleri virgül veya satır bazlı ayrıştırılarak array
+              olarak kaydedilir.
             </p>
           </header>
 
@@ -199,7 +234,7 @@ function Admin() {
                   name="tools"
                   value={projectForm.tools}
                   onChange={updateProjectForm}
-                  placeholder={'Fusion 360\nSolidWorks\nANSYS'}
+                  placeholder="Fusion 360, SolidWorks, ANSYS"
                   rows="5"
                 />
               </label>
@@ -209,7 +244,7 @@ function Admin() {
                   name="images"
                   value={projectForm.images}
                   onChange={updateProjectForm}
-                  placeholder={'/projects/new-project/image-1.jpg\n/projects/new-project/image-2.jpg'}
+                  placeholder="/projects/new-project/image-1.jpg, /projects/new-project/image-2.jpg"
                   rows="5"
                 />
               </label>
@@ -244,9 +279,15 @@ function Admin() {
                 />
               </label>
 
+              {submitStatus.message && (
+                <p className={`admin-submit-message ${submitStatus.type}`}>
+                  {submitStatus.message}
+                </p>
+              )}
+
               <div className="admin-form-actions">
-                <button className="button button-primary" type="submit">
-                  JSON önizleme oluştur
+                <button className="button button-primary" type="submit" disabled={isSaving}>
+                  {isSaving ? 'Kaydediliyor...' : 'Supabase’e kaydet'}
                 </button>
                 <button
                   className="button button-outline"
@@ -254,6 +295,7 @@ function Admin() {
                   onClick={() => {
                     setProjectForm(initialProjectForm)
                     setPreviewProject(null)
+                    setSubmitStatus({ type: '', message: '' })
                   }}
                 >
                   Formu temizle
@@ -263,7 +305,7 @@ function Admin() {
 
             <aside className="admin-preview" aria-live="polite">
               <p className="eyebrow">JSON önizleme</p>
-              <h2>Backend’e gönderilecek taslak</h2>
+              <h2>Supabase’e gönderilecek veri</h2>
               <pre>
                 {JSON.stringify(previewProject ?? generatedProject, null, 2)}
               </pre>
