@@ -40,6 +40,7 @@ function normalizeProject(project) {
     portfolioUrl: project.portfolio_url ?? project.portfolioUrl ?? null,
     githubUrl: project.github_url ?? project.githubUrl ?? null,
     status: project.status,
+    createdAt: project.created_at ?? project.createdAt ?? null,
     galleryTitle: project.gallery_title ?? project.galleryTitle,
   }
 }
@@ -51,20 +52,24 @@ function hasSameProjectIdentity(project, candidate) {
   )
 }
 
+function sortNewestFirst(projects) {
+  return [...projects].sort((firstProject, secondProject) => {
+    const firstDate = firstProject.createdAt ? new Date(firstProject.createdAt).getTime() : 0
+    const secondDate = secondProject.createdAt ? new Date(secondProject.createdAt).getTime() : 0
+
+    return secondDate - firstDate
+  })
+}
+
 function mergeProjects(staticProjectList, supabaseProjectList) {
-  return supabaseProjectList.reduce((mergedProjects, supabaseProject) => {
-    const existingIndex = mergedProjects.findIndex((project) => (
-      hasSameProjectIdentity(project, supabaseProject)
+  const sortedSupabaseProjects = sortNewestFirst(supabaseProjectList)
+  const staticProjectsWithoutDuplicates = staticProjectList.filter((staticProject) => (
+    !sortedSupabaseProjects.some((supabaseProject) => (
+      hasSameProjectIdentity(staticProject, supabaseProject)
     ))
+  ))
 
-    if (existingIndex >= 0) {
-      const nextProjects = [...mergedProjects]
-      nextProjects[existingIndex] = supabaseProject
-      return nextProjects
-    }
-
-    return [...mergedProjects, supabaseProject]
-  }, staticProjectList)
+  return [...sortedSupabaseProjects, ...staticProjectsWithoutDuplicates]
 }
 
 function Projects() {
