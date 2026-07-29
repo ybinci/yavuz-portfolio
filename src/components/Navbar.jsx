@@ -1,30 +1,28 @@
 import { useEffect, useState } from 'react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 
 const navItems = [
-  { id: 'home', label: 'Ana Sayfa' },
-  { id: 'about', label: 'Hakkımda' },
-  { id: 'projects', label: 'Projeler' },
-  { id: 'services', label: 'Hizmetler' },
-  { id: 'contact', label: 'İletişim' },
+  { to: '/', label: 'Ana Sayfa', end: true },
+  { to: '/hakkimda', label: 'Hakkımda' },
+  { to: '/projeler', label: 'Projeler' },
+  { to: '/proje-gunlugu', label: 'Proje Günlüğü' },
+  { to: '/hizmetler', label: 'Hizmetler' },
+  { to: '/iletisim', label: 'İletişim' },
 ]
 
-function Navbar({ activePage, onNavigate }) {
+function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
+  const location = useLocation()
 
-  useEffect(() => setIsOpen(false), [activePage])
-
-  const goTo = (page) => {
-    onNavigate(page)
-    setIsOpen(false)
-  }
+  useEffect(() => setIsOpen(false), [location.pathname])
 
   return (
     <header className="site-header">
       <nav className="navbar" aria-label="Ana navigasyon">
-        <button className="logo" onClick={() => goTo('home')} aria-label="Ana sayfaya git">
+        <Link className="logo" to="/" aria-label="Ana sayfaya git">
           <span className="logo-mark" aria-hidden="true">YBİ</span>
           <span>Yavuz Bahadır İnci</span>
-        </button>
+        </Link>
 
         <button
           className="menu-toggle"
@@ -41,14 +39,14 @@ function Navbar({ activePage, onNavigate }) {
 
         <div className={`nav-links ${isOpen ? 'is-open' : ''}`} id="main-menu">
           {navItems.map((item) => (
-            <button
-              key={item.id}
-              className={activePage === item.id ? 'active' : ''}
-              onClick={() => goTo(item.id)}
-              aria-current={activePage === item.id ? 'page' : undefined}
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => (isActive ? 'active' : undefined)}
             >
               {item.label}
-            </button>
+            </NavLink>
           ))}
         </div>
       </nav>

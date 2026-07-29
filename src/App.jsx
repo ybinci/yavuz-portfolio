@@ -1,63 +1,53 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Home from './components/Home'
 import About from './components/About'
 import Projects from './components/Projects'
+import ProjectJournal from './components/ProjectJournal'
 import Services from './components/Services'
 import Contact from './components/Contact'
 import Admin from './components/Admin'
 import './App.css'
 
-const pages = {
-  home: Home,
-  about: About,
-  projects: Projects,
-  services: Services,
-  contact: Contact,
-  admin: Admin,
-}
-
-const getInitialPage = () => (
-  window.location.pathname === '/admin'
-    ? 'admin'
-    : window.location.hash.startsWith('#project-') ? 'projects' : 'home'
-)
-
-function App() {
-  const [activePage, setActivePage] = useState(getInitialPage)
-  const ActivePage = pages[activePage]
+function ScrollToTop() {
+  const { pathname } = useLocation()
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [activePage])
+  }, [pathname])
 
-  const navigate = (page) => {
-    if (!pages[page]) return
+  return null
+}
 
-    if (page === 'admin') {
-      window.history.replaceState(null, '', '/admin')
-      setActivePage(page)
-      return
-    }
-
-    if (window.location.pathname === '/admin') {
-      window.history.replaceState(null, '', '/')
-    }
-
-    if (page !== 'projects' && window.location.hash.startsWith('#project-')) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
-    }
-
-    setActivePage(page)
-  }
-
+function AppLayout() {
   return (
     <div className="site-shell">
-      <Navbar activePage={activePage} onNavigate={navigate} />
+      <ScrollToTop />
+      <Navbar />
       <main className="page-content">
-        <ActivePage onNavigate={navigate} />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/hakkimda" element={<About />} />
+          <Route path="/projeler" element={<Projects />} />
+          <Route path="/projeler/:slug" element={<Projects />} />
+          <Route path="/proje-gunlugu" element={<ProjectJournal />} />
+          <Route path="/proje-gunlugu/:slug" element={<ProjectJournal />} />
+          <Route path="/hizmetler" element={<Services />} />
+          <Route path="/iletisim" element={<Contact />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppLayout />
+    </BrowserRouter>
   )
 }
 

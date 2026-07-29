@@ -1,4 +1,6 @@
-function Home({ onNavigate }) {
+import { Link } from 'react-router-dom'
+
+function Home() {
   return (
     <section className="hero page-panel" aria-labelledby="home-title">
       <div className="hero-copy">
@@ -11,12 +13,12 @@ function Home({ onNavigate }) {
         </p>
 
         <div className="hero-actions">
-          <button className="button button-primary" onClick={() => onNavigate('projects')}>
+          <Link className="button button-primary" to="/projeler">
             Projelerimi Gör <span aria-hidden="true">→</span>
-          </button>
-          <button className="button button-outline" onClick={() => onNavigate('services')}>
+          </Link>
+          <Link className="button button-outline" to="/hizmetler">
             Hizmetler
-          </button>
+          </Link>
         </div>
       </div>
 

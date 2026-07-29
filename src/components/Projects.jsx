@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { hasSupabaseConfig, supabase } from '../lib/supabaseClient'
 import { projects as fallbackProjects } from '../data/projects'
 import ProjectCard from './ProjectCard'
 import ProjectDetail from './ProjectDetail'
 
-const projectHashPrefix = '#project-'
 const staticProjects = fallbackProjects.map(normalizeProject)
-
-function getInitialProjectSlug() {
-  if (!window.location.hash.startsWith(projectHashPrefix)) return null
-
-  return window.location.hash.slice(projectHashPrefix.length)
-}
 
 function toArray(value) {
   if (Array.isArray(value)) return value
@@ -74,11 +68,12 @@ function mergeProjects(staticProjectList, supabaseProjectList) {
 
 function Projects() {
   const [projectList, setProjectList] = useState(staticProjects)
-  const [selectedSlug, setSelectedSlug] = useState(getInitialProjectSlug)
   const [isLoading, setIsLoading] = useState(hasSupabaseConfig)
+  const navigate = useNavigate()
+  const { slug } = useParams()
   const selectedProject = useMemo(
-    () => projectList.find((project) => project.slug === selectedSlug) ?? null,
-    [projectList, selectedSlug],
+    () => projectList.find((project) => project.slug === slug) ?? null,
+    [projectList, slug],
   )
 
   useEffect(() => {
@@ -124,24 +119,35 @@ function Projects() {
   }, [])
 
   const selectProject = (slug) => {
-    setSelectedSlug(slug)
-    window.history.replaceState(null, '', `${projectHashPrefix}${slug}`)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigate(`/projeler/${slug}`)
   }
 
   const closeProject = () => {
-    setSelectedSlug(null)
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    navigate('/projeler')
   }
 
   return (
     <section
-      className={`page-panel section projects-page ${selectedProject ? 'has-detail' : ''}`}
-      aria-labelledby={selectedProject ? 'project-detail-title' : 'projects-title'}
+      className={`page-panel section projects-page ${slug ? 'has-detail' : ''}`}
+      aria-labelledby={slug ? 'project-detail-title' : 'projects-title'}
     >
-      {selectedProject ? (
+      {slug && selectedProject ? (
         <ProjectDetail project={selectedProject} onBack={closeProject} />
+      ) : slug && isLoading ? (
+        <div className="project-route-message">
+          <p className="eyebrow">Projeler</p>
+          <h1 id="project-detail-title">Proje yükleniyor</h1>
+          <p>Proje detayları hazırlanıyor...</p>
+        </div>
+      ) : slug ? (
+        <div className="project-route-message">
+          <p className="eyebrow">Projeler</p>
+          <h1 id="project-detail-title">Proje bulunamadı</h1>
+          <p>Bu slug ile eşleşen bir proje bulunamadı.</p>
+          <button className="button button-primary" type="button" onClick={closeProject}>
+            Projelere dön
+          </button>
+        </div>
       ) : (
         <>
           <header className="section-heading section-heading-row">

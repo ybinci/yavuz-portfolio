@@ -10,7 +10,7 @@ function ProjectDetail({ project, onBack }) {
   return (
     <article className="project-detail" aria-labelledby="project-detail-title">
       <button className="project-back" type="button" onClick={onBack}>
-        <span aria-hidden="true">←</span> Projelere dön
+        <span aria-hidden="true">←</span> Geri Dön
       </button>
 
       <header className="project-detail-hero">
