@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { hasSupabaseConfig, supabase } from '../lib/supabaseClient'
+import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
 import { projects as fallbackProjects } from '../data/projects'
 import ProjectCard from './ProjectCard'
 import ProjectDetail from './ProjectDetail'
@@ -85,7 +85,7 @@ function mergeProjects(staticProjectList, supabaseProjectList) {
 
 function Projects() {
   const [projectList, setProjectList] = useState(staticProjects)
-  const [isLoading, setIsLoading] = useState(hasSupabaseConfig)
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured)
   const navigate = useNavigate()
   const { slug } = useParams()
   const selectedProject = useMemo(
@@ -97,7 +97,7 @@ function Projects() {
     let isMounted = true
 
     async function loadProjects() {
-      if (!hasSupabaseConfig || !supabase) {
+      if (!isSupabaseConfigured || !supabase) {
         setProjectList(staticProjects)
         setIsLoading(false)
         return

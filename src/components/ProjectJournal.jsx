@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { hasSupabaseConfig, supabase } from '../lib/supabaseClient'
+import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
 import { projectJournalEntries as fallbackJournalEntries } from '../data/projectJournal'
 
 const staticJournalEntries = fallbackJournalEntries.map(normalizeJournalEntry)
@@ -84,7 +84,7 @@ function renderContent(content) {
 function ProjectJournal() {
   const { slug } = useParams()
   const [entries, setEntries] = useState(staticJournalEntries)
-  const [isLoading, setIsLoading] = useState(hasSupabaseConfig)
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured)
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.slug === slug || String(entry.id) === slug),
     [entries, slug],
@@ -94,7 +94,7 @@ function ProjectJournal() {
     let isMounted = true
 
     async function loadJournalEntries() {
-      if (!hasSupabaseConfig || !supabase) {
+      if (!isSupabaseConfigured || !supabase) {
         setEntries(staticJournalEntries)
         setIsLoading(false)
         return

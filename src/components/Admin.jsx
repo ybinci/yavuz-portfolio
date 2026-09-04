@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  hasSupabaseConfig,
+  isSupabaseConfigured,
   supabase,
   supabaseConfigErrorMessage,
+  supabaseEnvReadErrorMessage,
 } from '../lib/supabaseClient'
 
 const initialProjectForm = {
@@ -80,6 +81,10 @@ function getSupabaseErrorMessage(error) {
   return errorMessage || 'Supabase işlemi sırasında bilinmeyen bir hata oluştu.'
 }
 
+function getSupabaseConfigMessage() {
+  return isSupabaseConfigured ? supabaseConfigErrorMessage : supabaseEnvReadErrorMessage
+}
+
 function Admin() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [session, setSession] = useState(null)
@@ -106,25 +111,31 @@ function Admin() {
   const livePreviewJournal = useMemo(() => createJournalPayload(journalForm), [journalForm])
 
   useEffect(() => {
-    if (!hasSupabaseConfig || !supabase) {
+    if (!isSupabaseConfigured || !supabase) {
       setAuthMessage({
         type: 'error',
-        message: supabaseConfigErrorMessage,
+        message: getSupabaseConfigMessage(),
       })
       return undefined
     }
 
     let isMounted = true
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!isMounted) return
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!isMounted) return
 
-      if (error) {
+        if (error) {
+          setAuthMessage({ type: 'error', message: getSupabaseErrorMessage(error) })
+        }
+
+        setSession(data.session)
+      })
+      .catch((error) => {
+        if (!isMounted) return
         setAuthMessage({ type: 'error', message: getSupabaseErrorMessage(error) })
-      }
-
-      setSession(data.session)
-    })
+      })
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession)
@@ -165,10 +176,10 @@ function Admin() {
     console.log('Login attempt started')
     setAuthMessage({ type: '', message: '' })
 
-    if (!hasSupabaseConfig || !supabase) {
+    if (!supabase) {
       setAuthMessage({
         type: 'error',
-        message: supabaseConfigErrorMessage,
+        message: getSupabaseConfigMessage(),
       })
       return
     }
@@ -200,7 +211,13 @@ function Admin() {
   }
 
   const handleLogout = async () => {
-    if (!hasSupabaseConfig || !supabase) return
+    if (!supabase) {
+      setAuthMessage({
+        type: 'error',
+        message: getSupabaseConfigMessage(),
+      })
+      return
+    }
 
     setLogoutLoading(true)
 
@@ -233,10 +250,10 @@ function Admin() {
       return
     }
 
-    if (!hasSupabaseConfig || !supabase) {
+    if (!isSupabaseConfigured || !supabase) {
       setProjectSubmitStatus({
         type: 'error',
-        message: supabaseConfigErrorMessage,
+        message: getSupabaseConfigMessage(),
       })
       return
     }
@@ -281,10 +298,10 @@ function Admin() {
       return
     }
 
-    if (!hasSupabaseConfig || !supabase) {
+    if (!isSupabaseConfigured || !supabase) {
       setJournalSubmitStatus({
         type: 'error',
-        message: supabaseConfigErrorMessage,
+        message: getSupabaseConfigMessage(),
       })
       return
     }
