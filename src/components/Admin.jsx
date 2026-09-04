@@ -16,6 +16,18 @@ const initialProjectForm = {
   status: 'draft',
 }
 
+const initialJournalForm = {
+  title: '',
+  slug: '',
+  projectName: '',
+  date: '',
+  summary: '',
+  content: '',
+  tags: '',
+  relatedProjectSlug: '',
+  status: 'draft',
+}
+
 const splitListField = (value) => (
   value
     .split(/[\n,]+/)
@@ -40,19 +52,39 @@ function createProjectPayload(projectForm) {
   }
 }
 
+function createJournalPayload(journalForm) {
+  return {
+    title: journalForm.title.trim(),
+    slug: journalForm.slug.trim(),
+    project_name: journalForm.projectName.trim(),
+    date: journalForm.date || null,
+    summary: journalForm.summary.trim(),
+    content: journalForm.content.trim(),
+    tags: splitListField(journalForm.tags),
+    related_project_slug: journalForm.relatedProjectSlug.trim() || null,
+    status: journalForm.status,
+  }
+}
+
 function Admin() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [session, setSession] = useState(null)
   const [isAuthReady, setIsAuthReady] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [authMessage, setAuthMessage] = useState({ type: '', message: '' })
+  const [activeSection, setActiveSection] = useState('projects')
   const [projectForm, setProjectForm] = useState(initialProjectForm)
+  const [journalForm, setJournalForm] = useState(initialJournalForm)
   const [previewProject, setPreviewProject] = useState(null)
-  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' })
-  const [isSaving, setIsSaving] = useState(false)
+  const [previewJournal, setPreviewJournal] = useState(null)
+  const [projectSubmitStatus, setProjectSubmitStatus] = useState({ type: '', message: '' })
+  const [journalSubmitStatus, setJournalSubmitStatus] = useState({ type: '', message: '' })
+  const [isSavingProject, setIsSavingProject] = useState(false)
+  const [isSavingJournal, setIsSavingJournal] = useState(false)
 
   const isAuthenticated = Boolean(session?.user)
   const livePreviewProject = useMemo(() => createProjectPayload(projectForm), [projectForm])
+  const livePreviewJournal = useMemo(() => createJournalPayload(journalForm), [journalForm])
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -83,8 +115,11 @@ function Admin() {
 
       if (!nextSession) {
         setProjectForm(initialProjectForm)
+        setJournalForm(initialJournalForm)
         setPreviewProject(null)
-        setSubmitStatus({ type: '', message: '' })
+        setPreviewJournal(null)
+        setProjectSubmitStatus({ type: '', message: '' })
+        setJournalSubmitStatus({ type: '', message: '' })
       }
     })
 
@@ -102,6 +137,11 @@ function Admin() {
   const updateProjectForm = (event) => {
     const { name, value } = event.target
     setProjectForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const updateJournalForm = (event) => {
+    const { name, value } = event.target
+    setJournalForm((current) => ({ ...current, [name]: value }))
   }
 
   const handleLogin = async (event) => {
@@ -160,10 +200,10 @@ function Admin() {
 
     const projectPayload = createProjectPayload(projectForm)
     setPreviewProject(projectPayload)
-    setSubmitStatus({ type: '', message: '' })
+    setProjectSubmitStatus({ type: '', message: '' })
 
     if (!isAuthenticated) {
-      setSubmitStatus({
+      setProjectSubmitStatus({
         type: 'error',
         message: 'Proje kaydetmek için Supabase Auth ile giriş yapmalısınız.',
       })
@@ -171,7 +211,7 @@ function Admin() {
     }
 
     if (!hasSupabaseConfig || !supabase) {
-      setSubmitStatus({
+      setProjectSubmitStatus({
         type: 'error',
         message:
           'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
@@ -179,7 +219,7 @@ function Admin() {
       return
     }
 
-    setIsSaving(true)
+    setIsSavingProject(true)
 
     try {
       const { error } = await supabase
@@ -188,19 +228,68 @@ function Admin() {
 
       if (error) throw error
 
-      setSubmitStatus({
+      setProjectSubmitStatus({
         type: 'success',
         message: 'Proje başarıyla kaydedildi.',
       })
       setProjectForm(initialProjectForm)
       setPreviewProject(projectPayload)
     } catch (error) {
-      setSubmitStatus({
+      setProjectSubmitStatus({
         type: 'error',
         message: error.message,
       })
     } finally {
-      setIsSaving(false)
+      setIsSavingProject(false)
+    }
+  }
+
+  const handleJournalSubmit = async (event) => {
+    event.preventDefault()
+
+    const journalPayload = createJournalPayload(journalForm)
+    setPreviewJournal(journalPayload)
+    setJournalSubmitStatus({ type: '', message: '' })
+
+    if (!isAuthenticated) {
+      setJournalSubmitStatus({
+        type: 'error',
+        message: 'Günlük yazısı kaydetmek için Supabase Auth ile giriş yapmalısınız.',
+      })
+      return
+    }
+
+    if (!hasSupabaseConfig || !supabase) {
+      setJournalSubmitStatus({
+        type: 'error',
+        message:
+          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+      })
+      return
+    }
+
+    setIsSavingJournal(true)
+
+    try {
+      const { error } = await supabase
+        .from('project_journal')
+        .insert([journalPayload])
+
+      if (error) throw error
+
+      setJournalSubmitStatus({
+        type: 'success',
+        message: 'Günlük yazısı başarıyla kaydedildi.',
+      })
+      setJournalForm(initialJournalForm)
+      setPreviewJournal(journalPayload)
+    } catch (error) {
+      setJournalSubmitStatus({
+        type: 'error',
+        message: error.message,
+      })
+    } finally {
+      setIsSavingJournal(false)
     }
   }
 
@@ -211,7 +300,7 @@ function Admin() {
           <p className="eyebrow">Supabase Auth</p>
           <h1 id="admin-title">Admin girişi</h1>
           <p>
-            Proje ekleme formuna erişmek için Supabase Auth üzerinde tanımlı admin
+            Proje ve günlük yönetimine erişmek için Supabase Auth üzerinde tanımlı admin
             hesabınızla giriş yapın.
           </p>
 
@@ -266,8 +355,10 @@ function Admin() {
         <div className="admin-workspace">
           <header className="admin-heading">
             <div>
-              <p className="eyebrow">Supabase projects tablosu</p>
-              <h1 id="admin-title">Yeni Proje Ekle</h1>
+              <p className="eyebrow">Supabase yönetimi</p>
+              <h1 id="admin-title">
+                {activeSection === 'projects' ? 'Yeni Proje Ekle' : 'Proje Günlüğü Yönetimi'}
+              </h1>
             </div>
             <div className="admin-session-card">
               <p>
@@ -285,164 +376,322 @@ function Admin() {
             </div>
           </header>
 
-          <p className="admin-helper-text">
-            Form gönderildiğinde alanlar Supabase şemasına uygun objeye dönüştürülür.
-            Tools ve images değerleri virgül veya satır bazlı ayrıştırılarak array
-            olarak kaydedilir.
-          </p>
-
-          <div className="admin-grid">
-            <form className="admin-project-form" onSubmit={handleProjectSubmit}>
-              <label>
-                Proje başlığı
-                <input
-                  name="title"
-                  type="text"
-                  value={projectForm.title}
-                  onChange={updateProjectForm}
-                  placeholder="Örn. Yeni Mekanik Tasarım Projesi"
-                />
-              </label>
-              <label>
-                Slug
-                <input
-                  name="slug"
-                  type="text"
-                  value={projectForm.slug}
-                  onChange={updateProjectForm}
-                  placeholder="yeni-mekanik-tasarim-projesi"
-                />
-              </label>
-              <label>
-                Kategori
-                <input
-                  name="category"
-                  type="text"
-                  value={projectForm.category}
-                  onChange={updateProjectForm}
-                  placeholder="CAD · Mekanik Tasarım"
-                />
-              </label>
-              <label>
-                Durum
-                <select name="status" value={projectForm.status} onChange={updateProjectForm}>
-                  <option value="published">published</option>
-                  <option value="draft">draft</option>
-                </select>
-              </label>
-              <label className="admin-field-wide">
-                Kısa açıklama
-                <textarea
-                  name="summary"
-                  value={projectForm.summary}
-                  onChange={updateProjectForm}
-                  placeholder="Kartlarda görünecek kısa proje özeti"
-                  rows="3"
-                />
-              </label>
-              <label className="admin-field-wide">
-                Detaylı açıklama
-                <textarea
-                  name="description"
-                  value={projectForm.description}
-                  onChange={updateProjectForm}
-                  placeholder="Detay ekranında gösterilecek proje açıklaması"
-                  rows="6"
-                />
-              </label>
-              <label className="admin-field-wide">
-                Benim rolüm
-                <textarea
-                  name="role"
-                  value={projectForm.role}
-                  onChange={updateProjectForm}
-                  placeholder="Projede üstlenilen sorumluluklar"
-                  rows="4"
-                />
-              </label>
-              <label>
-                Kullanılan araçlar / teknolojiler
-                <textarea
-                  name="tools"
-                  value={projectForm.tools}
-                  onChange={updateProjectForm}
-                  placeholder="Fusion 360, SolidWorks, ANSYS"
-                  rows="5"
-                />
-              </label>
-              <label>
-                Görsel linkleri
-                <textarea
-                  name="images"
-                  value={projectForm.images}
-                  onChange={updateProjectForm}
-                  placeholder="/projects/new-project/image-1.jpg, /projects/new-project/image-2.jpg"
-                  rows="5"
-                />
-              </label>
-              <label>
-                PDF linki
-                <input
-                  name="pdfUrl"
-                  type="text"
-                  value={projectForm.pdfUrl}
-                  onChange={updateProjectForm}
-                  placeholder="/projects/new-project/report.pdf"
-                />
-              </label>
-              <label>
-                Portföy linki
-                <input
-                  name="portfolioUrl"
-                  type="text"
-                  value={projectForm.portfolioUrl}
-                  onChange={updateProjectForm}
-                  placeholder="/portfolio.pdf"
-                />
-              </label>
-              <label>
-                GitHub linki
-                <input
-                  name="githubUrl"
-                  type="url"
-                  value={projectForm.githubUrl}
-                  onChange={updateProjectForm}
-                  placeholder="https://github.com/..."
-                />
-              </label>
-
-              {submitStatus.message && (
-                <p className={`admin-submit-message ${submitStatus.type}`}>
-                  {submitStatus.message}
-                </p>
-              )}
-
-              <div className="admin-form-actions">
-                <button className="button button-primary" type="submit" disabled={isSaving}>
-                  {isSaving ? 'Kaydediliyor...' : 'Projeyi Kaydet'}
-                </button>
-                <button
-                  className="button button-outline"
-                  type="button"
-                  onClick={() => {
-                    setProjectForm(initialProjectForm)
-                    setPreviewProject(null)
-                    setSubmitStatus({ type: '', message: '' })
-                  }}
-                >
-                  Formu temizle
-                </button>
-              </div>
-            </form>
-
-            <aside className="admin-preview" aria-live="polite">
-              <p className="eyebrow">Önizleme</p>
-              <h2>Supabase’e gönderilecek veri</h2>
-              <pre>
-                {JSON.stringify(previewProject ?? livePreviewProject, null, 2)}
-              </pre>
-            </aside>
+          <div className="admin-section-tabs" aria-label="Admin bölümleri">
+            <button
+              className={activeSection === 'projects' ? 'active' : ''}
+              type="button"
+              onClick={() => setActiveSection('projects')}
+            >
+              Proje Ekle
+            </button>
+            <button
+              className={activeSection === 'journal' ? 'active' : ''}
+              type="button"
+              onClick={() => setActiveSection('journal')}
+            >
+              Proje Günlüğü Yazısı Ekle
+            </button>
           </div>
+
+          {activeSection === 'projects' ? (
+            <>
+              <p className="admin-helper-text">
+                Form gönderildiğinde alanlar Supabase projects tablosuna uygun objeye
+                dönüştürülür. Tools ve images değerleri virgül veya satır bazlı ayrıştırılarak
+                array olarak kaydedilir.
+              </p>
+
+              <div className="admin-grid">
+                <form className="admin-project-form" onSubmit={handleProjectSubmit}>
+                  <label>
+                    Proje başlığı
+                    <input
+                      name="title"
+                      type="text"
+                      value={projectForm.title}
+                      onChange={updateProjectForm}
+                      placeholder="Örn. Yeni Mekanik Tasarım Projesi"
+                    />
+                  </label>
+                  <label>
+                    Slug
+                    <input
+                      name="slug"
+                      type="text"
+                      value={projectForm.slug}
+                      onChange={updateProjectForm}
+                      placeholder="yeni-mekanik-tasarim-projesi"
+                    />
+                  </label>
+                  <label>
+                    Kategori
+                    <input
+                      name="category"
+                      type="text"
+                      value={projectForm.category}
+                      onChange={updateProjectForm}
+                      placeholder="CAD · Mekanik Tasarım"
+                    />
+                  </label>
+                  <label>
+                    Durum
+                    <select name="status" value={projectForm.status} onChange={updateProjectForm}>
+                      <option value="published">published</option>
+                      <option value="draft">draft</option>
+                    </select>
+                  </label>
+                  <label className="admin-field-wide">
+                    Kısa açıklama
+                    <textarea
+                      name="summary"
+                      value={projectForm.summary}
+                      onChange={updateProjectForm}
+                      placeholder="Kartlarda görünecek kısa proje özeti"
+                      rows="3"
+                    />
+                  </label>
+                  <label className="admin-field-wide">
+                    Detaylı açıklama
+                    <textarea
+                      name="description"
+                      value={projectForm.description}
+                      onChange={updateProjectForm}
+                      placeholder="Detay ekranında gösterilecek proje açıklaması"
+                      rows="6"
+                    />
+                  </label>
+                  <label className="admin-field-wide">
+                    Benim rolüm
+                    <textarea
+                      name="role"
+                      value={projectForm.role}
+                      onChange={updateProjectForm}
+                      placeholder="Projede üstlenilen sorumluluklar"
+                      rows="4"
+                    />
+                  </label>
+                  <label>
+                    Kullanılan araçlar / teknolojiler
+                    <textarea
+                      name="tools"
+                      value={projectForm.tools}
+                      onChange={updateProjectForm}
+                      placeholder="Fusion 360, SolidWorks, ANSYS"
+                      rows="5"
+                    />
+                  </label>
+                  <label>
+                    Görsel linkleri
+                    <textarea
+                      name="images"
+                      value={projectForm.images}
+                      onChange={updateProjectForm}
+                      placeholder="/projects/new-project/image-1.jpg, /projects/new-project/image-2.jpg"
+                      rows="5"
+                    />
+                  </label>
+                  <label>
+                    PDF linki
+                    <input
+                      name="pdfUrl"
+                      type="text"
+                      value={projectForm.pdfUrl}
+                      onChange={updateProjectForm}
+                      placeholder="/projects/new-project/report.pdf"
+                    />
+                  </label>
+                  <label>
+                    Portföy linki
+                    <input
+                      name="portfolioUrl"
+                      type="text"
+                      value={projectForm.portfolioUrl}
+                      onChange={updateProjectForm}
+                      placeholder="/portfolio.pdf"
+                    />
+                  </label>
+                  <label>
+                    GitHub linki
+                    <input
+                      name="githubUrl"
+                      type="url"
+                      value={projectForm.githubUrl}
+                      onChange={updateProjectForm}
+                      placeholder="https://github.com/..."
+                    />
+                  </label>
+
+                  {projectSubmitStatus.message && (
+                    <p className={`admin-submit-message ${projectSubmitStatus.type}`}>
+                      {projectSubmitStatus.message}
+                    </p>
+                  )}
+
+                  <div className="admin-form-actions">
+                    <button
+                      className="button button-primary"
+                      type="submit"
+                      disabled={isSavingProject}
+                    >
+                      {isSavingProject ? 'Kaydediliyor...' : 'Projeyi Kaydet'}
+                    </button>
+                    <button
+                      className="button button-outline"
+                      type="button"
+                      onClick={() => {
+                        setProjectForm(initialProjectForm)
+                        setPreviewProject(null)
+                        setProjectSubmitStatus({ type: '', message: '' })
+                      }}
+                    >
+                      Formu temizle
+                    </button>
+                  </div>
+                </form>
+
+                <aside className="admin-preview" aria-live="polite">
+                  <p className="eyebrow">Önizleme</p>
+                  <h2>Supabase’e gönderilecek proje</h2>
+                  <pre>
+                    {JSON.stringify(previewProject ?? livePreviewProject, null, 2)}
+                  </pre>
+                </aside>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="admin-helper-text">
+                Bu form Supabase project_journal tablosuna günlük/blog yazısı ekler.
+                Tags değeri virgül veya satır bazlı ayrıştırılarak text array olarak kaydedilir.
+              </p>
+
+              <div className="admin-grid">
+                <form className="admin-project-form" onSubmit={handleJournalSubmit}>
+                  <label>
+                    title
+                    <input
+                      name="title"
+                      type="text"
+                      value={journalForm.title}
+                      onChange={updateJournalForm}
+                      placeholder="Örn. İlk prototip test notları"
+                    />
+                  </label>
+                  <label>
+                    slug
+                    <input
+                      name="slug"
+                      type="text"
+                      value={journalForm.slug}
+                      onChange={updateJournalForm}
+                      placeholder="ilk-prototip-test-notlari"
+                    />
+                  </label>
+                  <label>
+                    project_name
+                    <input
+                      name="projectName"
+                      type="text"
+                      value={journalForm.projectName}
+                      onChange={updateJournalForm}
+                      placeholder="Çift Rotorlu Dengeleme Sistemi"
+                    />
+                  </label>
+                  <label>
+                    date
+                    <input
+                      name="date"
+                      type="date"
+                      value={journalForm.date}
+                      onChange={updateJournalForm}
+                    />
+                  </label>
+                  <label className="admin-field-wide">
+                    summary
+                    <textarea
+                      name="summary"
+                      value={journalForm.summary}
+                      onChange={updateJournalForm}
+                      placeholder="Liste kartında görünecek kısa özet"
+                      rows="3"
+                    />
+                  </label>
+                  <label className="admin-field-wide">
+                    content
+                    <textarea
+                      name="content"
+                      value={journalForm.content}
+                      onChange={updateJournalForm}
+                      placeholder="Günlük yazısının detay içeriği"
+                      rows="8"
+                    />
+                  </label>
+                  <label>
+                    tags
+                    <textarea
+                      name="tags"
+                      value={journalForm.tags}
+                      onChange={updateJournalForm}
+                      placeholder="prototip, test, kontrol sistemi"
+                      rows="5"
+                    />
+                  </label>
+                  <label>
+                    related_project_slug
+                    <input
+                      name="relatedProjectSlug"
+                      type="text"
+                      value={journalForm.relatedProjectSlug}
+                      onChange={updateJournalForm}
+                      placeholder="cift-rotorlu-dengeleme-sistemi"
+                    />
+                  </label>
+                  <label>
+                    status
+                    <select name="status" value={journalForm.status} onChange={updateJournalForm}>
+                      <option value="published">published</option>
+                      <option value="draft">draft</option>
+                    </select>
+                  </label>
+
+                  {journalSubmitStatus.message && (
+                    <p className={`admin-submit-message ${journalSubmitStatus.type}`}>
+                      {journalSubmitStatus.message}
+                    </p>
+                  )}
+
+                  <div className="admin-form-actions">
+                    <button
+                      className="button button-primary"
+                      type="submit"
+                      disabled={isSavingJournal}
+                    >
+                      {isSavingJournal ? 'Kaydediliyor...' : 'Günlük Yazısını Kaydet'}
+                    </button>
+                    <button
+                      className="button button-outline"
+                      type="button"
+                      onClick={() => {
+                        setJournalForm(initialJournalForm)
+                        setPreviewJournal(null)
+                        setJournalSubmitStatus({ type: '', message: '' })
+                      }}
+                    >
+                      Formu temizle
+                    </button>
+                  </div>
+                </form>
+
+                <aside className="admin-preview" aria-live="polite">
+                  <p className="eyebrow">Önizleme</p>
+                  <h2>Supabase’e gönderilecek günlük yazısı</h2>
+                  <pre>
+                    {JSON.stringify(previewJournal ?? livePreviewJournal, null, 2)}
+                  </pre>
+                </aside>
+              </div>
+            </>
+          )}
         </div>
       )}
     </section>
