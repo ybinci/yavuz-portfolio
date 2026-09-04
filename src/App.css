@@ -888,6 +888,13 @@ a:focus-visible {
   background: rgba(255, 255, 255, 0.055);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(14px);
+  position: relative;
+  z-index: 1;
+}
+
+.admin-workspace {
+  position: relative;
+  z-index: 1;
 }
 
 .admin-login-card h1,

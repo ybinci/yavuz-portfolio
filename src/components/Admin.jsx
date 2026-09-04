@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { hasSupabaseConfig, supabase } from '../lib/supabaseClient'
+import {
+  hasSupabaseConfig,
+  supabase,
+  supabaseConfigErrorMessage,
+} from '../lib/supabaseClient'
 
 const initialProjectForm = {
   title: '',
@@ -66,10 +70,19 @@ function createJournalPayload(journalForm) {
   }
 }
 
+function getSupabaseErrorMessage(error) {
+  const errorMessage = error?.message ?? ''
+
+  if (errorMessage.toLowerCase().includes('failed to fetch')) {
+    return 'Supabase bağlantısı kurulamadı. URL, anon key veya Supabase erişim ayarlarını kontrol edin.'
+  }
+
+  return errorMessage || 'Supabase işlemi sırasında bilinmeyen bir hata oluştu.'
+}
+
 function Admin() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [session, setSession] = useState(null)
-  const [isAuthReady, setIsAuthReady] = useState(false)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [authMessage, setAuthMessage] = useState({ type: '', message: '' })
   const [activeSection, setActiveSection] = useState('projects')
@@ -83,16 +96,19 @@ function Admin() {
   const [isSavingJournal, setIsSavingJournal] = useState(false)
 
   const isAuthenticated = Boolean(session?.user)
+  const isLoginDisabled = (
+    isAuthLoading
+    || !authForm.email.trim()
+    || !authForm.password.trim()
+  )
   const livePreviewProject = useMemo(() => createProjectPayload(projectForm), [projectForm])
   const livePreviewJournal = useMemo(() => createJournalPayload(journalForm), [journalForm])
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
-      setIsAuthReady(true)
       setAuthMessage({
         type: 'error',
-        message:
-          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+        message: supabaseConfigErrorMessage,
       })
       return undefined
     }
@@ -103,11 +119,10 @@ function Admin() {
       if (!isMounted) return
 
       if (error) {
-        setAuthMessage({ type: 'error', message: error.message })
+        setAuthMessage({ type: 'error', message: getSupabaseErrorMessage(error) })
       }
 
       setSession(data.session)
-      setIsAuthReady(true)
     })
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -146,13 +161,13 @@ function Admin() {
 
   const handleLogin = async (event) => {
     event.preventDefault()
+    console.log('Login attempt started')
     setAuthMessage({ type: '', message: '' })
 
     if (!hasSupabaseConfig || !supabase) {
       setAuthMessage({
         type: 'error',
-        message:
-          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+        message: supabaseConfigErrorMessage,
       })
       return
     }
@@ -160,17 +175,24 @@ function Admin() {
     setIsAuthLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: authForm.email.trim(),
         password: authForm.password,
       })
 
       if (error) throw error
 
+      if (data.session) {
+        setSession(data.session)
+      }
+
       setAuthForm((current) => ({ ...current, password: '' }))
       setAuthMessage({ type: 'success', message: 'Giriş başarılı.' })
     } catch (error) {
-      setAuthMessage({ type: 'error', message: error.message })
+      setAuthMessage({
+        type: 'error',
+        message: `Giriş yapılamadı: ${getSupabaseErrorMessage(error)}`,
+      })
     } finally {
       setIsAuthLoading(false)
     }
@@ -189,7 +211,7 @@ function Admin() {
       setAuthForm({ email: '', password: '' })
       setAuthMessage({ type: 'success', message: 'Çıkış yapıldı.' })
     } catch (error) {
-      setAuthMessage({ type: 'error', message: error.message })
+      setAuthMessage({ type: 'error', message: getSupabaseErrorMessage(error) })
     } finally {
       setIsAuthLoading(false)
     }
@@ -213,8 +235,7 @@ function Admin() {
     if (!hasSupabaseConfig || !supabase) {
       setProjectSubmitStatus({
         type: 'error',
-        message:
-          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+        message: supabaseConfigErrorMessage,
       })
       return
     }
@@ -237,7 +258,7 @@ function Admin() {
     } catch (error) {
       setProjectSubmitStatus({
         type: 'error',
-        message: error.message,
+        message: getSupabaseErrorMessage(error),
       })
     } finally {
       setIsSavingProject(false)
@@ -262,8 +283,7 @@ function Admin() {
     if (!hasSupabaseConfig || !supabase) {
       setJournalSubmitStatus({
         type: 'error',
-        message:
-          'Supabase bağlantısı için VITE_SUPABASE_URL ve VITE_SUPABASE_ANON_KEY env değerleri gerekli.',
+        message: supabaseConfigErrorMessage,
       })
       return
     }
@@ -286,7 +306,7 @@ function Admin() {
     } catch (error) {
       setJournalSubmitStatus({
         type: 'error',
-        message: error.message,
+        message: getSupabaseErrorMessage(error),
       })
     } finally {
       setIsSavingJournal(false)
@@ -336,7 +356,7 @@ function Admin() {
               <button
                 className="button button-primary"
                 type="submit"
-                disabled={isAuthLoading || !isAuthReady}
+                disabled={isLoginDisabled}
               >
                 {isAuthLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
               </button>
