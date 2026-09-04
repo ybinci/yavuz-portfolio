@@ -83,7 +83,8 @@ function getSupabaseErrorMessage(error) {
 function Admin() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [session, setSession] = useState(null)
-  const [isAuthLoading, setIsAuthLoading] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [logoutLoading, setLogoutLoading] = useState(false)
   const [authMessage, setAuthMessage] = useState({ type: '', message: '' })
   const [activeSection, setActiveSection] = useState('projects')
   const [projectForm, setProjectForm] = useState(initialProjectForm)
@@ -97,7 +98,7 @@ function Admin() {
 
   const isAuthenticated = Boolean(session?.user)
   const isLoginDisabled = (
-    isAuthLoading
+    loginLoading
     || !authForm.email.trim()
     || !authForm.password.trim()
   )
@@ -172,7 +173,7 @@ function Admin() {
       return
     }
 
-    setIsAuthLoading(true)
+    setLoginLoading(true)
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -194,14 +195,14 @@ function Admin() {
         message: `Giriş yapılamadı: ${getSupabaseErrorMessage(error)}`,
       })
     } finally {
-      setIsAuthLoading(false)
+      setLoginLoading(false)
     }
   }
 
   const handleLogout = async () => {
     if (!hasSupabaseConfig || !supabase) return
 
-    setIsAuthLoading(true)
+    setLogoutLoading(true)
 
     try {
       const { error } = await supabase.auth.signOut()
@@ -213,7 +214,7 @@ function Admin() {
     } catch (error) {
       setAuthMessage({ type: 'error', message: getSupabaseErrorMessage(error) })
     } finally {
-      setIsAuthLoading(false)
+      setLogoutLoading(false)
     }
   }
 
@@ -358,7 +359,7 @@ function Admin() {
                 type="submit"
                 disabled={isLoginDisabled}
               >
-                {isAuthLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+                {loginLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
               </button>
               <button
                 className="button button-outline"
@@ -388,7 +389,7 @@ function Admin() {
               <button
                 className="button button-outline"
                 type="button"
-                disabled={isAuthLoading}
+                disabled={logoutLoading}
                 onClick={handleLogout}
               >
                 Çıkış Yap
