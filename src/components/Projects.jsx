@@ -39,11 +39,15 @@ function normalizeProject(project) {
   }
 }
 
-function hasSameProjectIdentity(project, candidate) {
-  return (
-    (candidate.slug && project.slug === candidate.slug)
-    || (candidate.id && project.id === candidate.id)
-  )
+function getProjectSlug(project) {
+  return typeof project.slug === 'string' ? project.slug.trim() : ''
+}
+
+function hasSameProjectSlug(project, candidate) {
+  const projectSlug = getProjectSlug(project)
+  const candidateSlug = getProjectSlug(candidate)
+
+  return Boolean(projectSlug && candidateSlug && projectSlug === candidateSlug)
 }
 
 function sortNewestFirst(projects) {
@@ -55,11 +59,24 @@ function sortNewestFirst(projects) {
   })
 }
 
+function uniqueProjectsBySlug(projects) {
+  const usedSlugs = new Set()
+
+  return projects.filter((project) => {
+    const slug = getProjectSlug(project)
+
+    if (!slug || usedSlugs.has(slug)) return false
+
+    usedSlugs.add(slug)
+    return true
+  })
+}
+
 function mergeProjects(staticProjectList, supabaseProjectList) {
-  const sortedSupabaseProjects = sortNewestFirst(supabaseProjectList)
+  const sortedSupabaseProjects = uniqueProjectsBySlug(sortNewestFirst(supabaseProjectList))
   const staticProjectsWithoutDuplicates = staticProjectList.filter((staticProject) => (
     !sortedSupabaseProjects.some((supabaseProject) => (
-      hasSameProjectIdentity(staticProject, supabaseProject)
+      hasSameProjectSlug(staticProject, supabaseProject)
     ))
   ))
 
@@ -91,12 +108,13 @@ function Projects() {
           .from('projects')
           .select('*')
           .eq('status', 'published')
+          .order('created_at', { ascending: false })
 
         if (error) throw error
 
         if (isMounted) {
           const publishedProjects = Array.isArray(data)
-            ? data.map(normalizeProject).filter((project) => project.slug || project.id)
+            ? data.map(normalizeProject).filter((project) => getProjectSlug(project))
             : []
 
           setProjectList(mergeProjects(staticProjects, publishedProjects))
@@ -177,7 +195,7 @@ function Projects() {
           <div className="project-grid">
             {projectList.map((project, index) => (
               <ProjectCard
-                key={project.id}
+                key={project.slug}
                 project={project}
                 index={index}
                 onSelect={selectProject}
