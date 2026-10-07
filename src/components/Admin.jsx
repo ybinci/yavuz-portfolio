@@ -29,6 +29,7 @@ const initialJournalForm = {
   summary: '',
   content: '',
   tags: '',
+  images: '',
   relatedProjectSlug: '',
   status: 'draft',
 }
@@ -66,6 +67,7 @@ function createJournalPayload(journalForm) {
     summary: journalForm.summary.trim(),
     content: journalForm.content.trim(),
     tags: splitListField(journalForm.tags),
+    images: splitListField(journalForm.images),
     related_project_slug: journalForm.relatedProjectSlug.trim() || null,
     status: journalForm.status,
   }
@@ -671,6 +673,16 @@ function Admin() {
                       value={journalForm.tags}
                       onChange={updateJournalForm}
                       placeholder="prototip, test, kontrol sistemi"
+                      rows="5"
+                    />
+                  </label>
+                  <label>
+                    Görsel linkleri
+                    <textarea
+                      name="images"
+                      value={journalForm.images}
+                      onChange={updateJournalForm}
+                      placeholder="Her satıra bir görsel linki yazın."
                       rows="5"
                     />
                   </label>

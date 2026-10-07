@@ -6,15 +6,14 @@ import { projectJournalEntries as fallbackJournalEntries } from '../data/project
 const staticJournalEntries = fallbackJournalEntries.map(normalizeJournalEntry)
 
 function toArray(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value === 'string') {
-    return value
-      .split(/[\n,]+/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
+  const items = Array.isArray(value)
+    ? value
+    : typeof value === 'string' ? value.split(/[\n,]+/) : []
 
-  return []
+  return items
+    .filter((item) => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function getEntrySlug(entry) {
@@ -31,6 +30,7 @@ function normalizeJournalEntry(entry) {
     summary: entry.summary,
     content: entry.content ?? entry.description ?? '',
     tags: toArray(entry.tags),
+    images: toArray(entry.images),
     relatedProjectSlug: entry.related_project_slug ?? entry.relatedProjectSlug ?? null,
     status: entry.status,
     createdAt: entry.created_at ?? entry.createdAt ?? null,
@@ -150,6 +150,22 @@ function ProjectJournal() {
           {contentParagraphs.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
+          {selectedEntry.images.length > 0 && (
+            <section className="journal-gallery-section" aria-labelledby="journal-gallery-title">
+              <h2 id="journal-gallery-title">Günlük görselleri</h2>
+              <div className="journal-gallery">
+                {selectedEntry.images.map((image, index) => (
+                  <figure key={`${image}-${index}`}>
+                    <img
+                      src={image}
+                      alt={`${selectedEntry.title} — görsel ${index + 1}`}
+                      loading="lazy"
+                    />
+                  </figure>
+                ))}
+              </div>
+            </section>
+          )}
           {selectedEntry.tags.length > 0 && (
             <ul className="journal-tags" aria-label="Etiketler">
               {selectedEntry.tags.map((tag) => <li key={tag}>{tag}</li>)}
@@ -218,6 +234,14 @@ function ProjectJournal() {
               className="project-card journal-card"
               to={`/proje-gunlugu/${entry.slug}`}
             >
+              {entry.images.length > 0 && (
+                <img
+                  className="journal-card-cover"
+                  src={entry.images[0]}
+                  alt={`${entry.title} kapak görseli`}
+                  loading="lazy"
+                />
+              )}
               <span className="project-number">{String(index + 1).padStart(2, '0')}</span>
               <div className="project-content">
                 <div className="project-card-meta">

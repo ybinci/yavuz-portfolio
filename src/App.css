@@ -834,6 +834,16 @@ a:focus-visible {
   text-decoration: none;
 }
 
+.journal-card-cover {
+  grid-column: 1 / -1;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  object-fit: cover;
+}
+
 .journal-back {
   margin: 0 0 24px;
 }
@@ -848,6 +858,38 @@ a:focus-visible {
 .journal-project-name {
   color: var(--accent-dark) !important;
   font-weight: 850;
+}
+
+.journal-gallery-section {
+  margin: 32px 0;
+}
+
+.journal-gallery-section h2 {
+  margin: 0 0 20px;
+  color: var(--ink);
+  font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+}
+
+.journal-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.journal-gallery figure {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.journal-gallery img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+  object-fit: cover;
 }
 
 .journal-tags {
@@ -1434,7 +1476,8 @@ a:focus-visible {
     position: static;
   }
 
-  .project-detail-gallery {
+  .project-detail-gallery,
+  .journal-gallery {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1593,7 +1636,8 @@ a:focus-visible {
     padding: 0 22px 45px;
   }
 
-  .project-detail-gallery {
+  .project-detail-gallery,
+  .journal-gallery {
     grid-template-columns: 1fr;
   }
 
