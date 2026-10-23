@@ -509,6 +509,7 @@ a:focus-visible {
 }
 
 .project-card {
+  text-decoration: none;
   min-height: 280px;
   padding: 26px;
   border: 1px solid var(--line);

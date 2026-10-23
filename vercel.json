@@ -1,8 +1,18 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/render.js": { "includeFiles": "dist-ssr/**", "maxDuration": 30 },
+    "api/sitemap.js": { "includeFiles": "dist-ssr/**", "maxDuration": 30 }
+  },
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/api/render?path=/:path*"
     }
   ]
 }

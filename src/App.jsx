@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom'
+import { PublicContentProvider } from './context/PublicContent.jsx'
+import Seo from './components/Seo.jsx'
 import Navbar from './components/Navbar'
 import Home from './components/Home'
 import About from './components/About'
@@ -20,10 +22,11 @@ function ScrollToTop() {
   return null
 }
 
-function AppLayout() {
+export function AppLayout() {
   return (
     <div className="site-shell">
       <ScrollToTop />
+      <Seo />
       <Navbar />
       <main className="page-content">
         <Routes>
@@ -36,17 +39,24 @@ function AppLayout() {
           <Route path="/hizmetler" element={<Services />} />
           <Route path="/iletisim" element={<Contact />} />
           <Route path="/admin" element={<Admin />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={(
+            <section className="page-panel section">
+              <h1>Sayfa bulunamadı</h1>
+              <Link className="button button-primary" to="/">Ana sayfaya dön</Link>
+            </section>
+          )} />
         </Routes>
       </main>
     </div>
   )
 }
 
-function App() {
+function App({ initialContent, refreshContent }) {
   return (
     <BrowserRouter>
-      <AppLayout />
+      <PublicContentProvider initialContent={initialContent} refreshContent={refreshContent}>
+        <AppLayout />
+      </PublicContentProvider>
     </BrowserRouter>
   )
 }

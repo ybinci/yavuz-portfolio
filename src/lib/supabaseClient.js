@@ -11,13 +11,12 @@ export const supabaseEnvReadErrorMessage = (
   + 'Vercel env değişkenlerini ve redeploy işlemini kontrol edin.'
 )
 
-console.info('Supabase URL var mı:', Boolean(supabaseUrl))
-console.info('Supabase anon key var mı:', Boolean(supabaseAnonKey))
-
-if (!isSupabaseConfigured) {
-  console.error(supabaseEnvReadErrorMessage)
+if (!import.meta.env.SSR) {
+  console.info('Supabase URL var mı:', Boolean(supabaseUrl))
+  console.info('Supabase anon key var mı:', Boolean(supabaseAnonKey))
+  if (!isSupabaseConfigured) console.error(supabaseEnvReadErrorMessage)
 }
 
-export const supabase = isSupabaseConfigured
+export const supabase = isSupabaseConfigured && !import.meta.env.SSR
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null

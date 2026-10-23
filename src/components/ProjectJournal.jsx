@@ -1,81 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
-import { projectJournalEntries as fallbackJournalEntries } from '../data/projectJournal'
-
-const staticJournalEntries = fallbackJournalEntries.map(normalizeJournalEntry)
-
-function toArray(value) {
-  const items = Array.isArray(value)
-    ? value
-    : typeof value === 'string' ? value.split(/[\n,]+/) : []
-
-  return items
-    .filter((item) => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function getEntrySlug(entry) {
-  return typeof entry.slug === 'string' ? entry.slug.trim() : ''
-}
-
-function normalizeJournalEntry(entry) {
-  return {
-    id: entry.id ?? entry.slug,
-    title: entry.title,
-    slug: entry.slug,
-    projectName: entry.project_name ?? entry.projectName ?? '',
-    date: entry.date ?? null,
-    summary: entry.summary,
-    content: entry.content ?? entry.description ?? '',
-    tags: toArray(entry.tags),
-    images: toArray(entry.images),
-    pdfUrl: typeof (entry.pdf_url ?? entry.pdfUrl) === 'string'
-      ? (entry.pdf_url ?? entry.pdfUrl).trim()
-      : '',
-    relatedProjectSlug: entry.related_project_slug ?? entry.relatedProjectSlug ?? null,
-    status: entry.status,
-    createdAt: entry.created_at ?? entry.createdAt ?? null,
-  }
-}
-
-function getEntryDateValue(entry) {
-  const sourceDate = entry.date ?? entry.createdAt
-  const timestamp = sourceDate ? new Date(sourceDate).getTime() : 0
-
-  return Number.isNaN(timestamp) ? 0 : timestamp
-}
-
-function sortNewestFirst(entries) {
-  return [...entries].sort((firstEntry, secondEntry) => (
-    getEntryDateValue(secondEntry) - getEntryDateValue(firstEntry)
-  ))
-}
-
-function uniqueEntriesBySlug(entries) {
-  const usedSlugs = new Set()
-
-  return entries.filter((entry) => {
-    const slug = getEntrySlug(entry)
-
-    if (!slug || usedSlugs.has(slug)) return false
-
-    usedSlugs.add(slug)
-    return true
-  })
-}
-
-function mergeJournalEntries(staticEntries, supabaseEntries) {
-  const sortedSupabaseEntries = uniqueEntriesBySlug(sortNewestFirst(supabaseEntries))
-  const staticEntriesWithoutDuplicates = staticEntries.filter((staticEntry) => (
-    !sortedSupabaseEntries.some((supabaseEntry) => (
-      getEntrySlug(staticEntry) === getEntrySlug(supabaseEntry)
-    ))
-  ))
-
-  return [...sortedSupabaseEntries, ...staticEntriesWithoutDuplicates]
-}
+import { usePublicContent } from '../context/publicContentContext.js'
+import { itemPath } from '../lib/seo.js'
 
 function renderContent(content) {
   return content
@@ -86,55 +12,11 @@ function renderContent(content) {
 
 function ProjectJournal() {
   const { slug } = useParams()
-  const [entries, setEntries] = useState(staticJournalEntries)
-  const [isLoading, setIsLoading] = useState(isSupabaseConfigured)
+  const { journal: entries, isLoading } = usePublicContent()
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.slug === slug || String(entry.id) === slug),
     [entries, slug],
   )
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadJournalEntries() {
-      if (!isSupabaseConfigured || !supabase) {
-        setEntries(staticJournalEntries)
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('project_journal')
-          .select('*')
-          .eq('status', 'published')
-          .order('date', { ascending: false })
-
-        if (error) throw error
-
-        if (isMounted) {
-          const publishedEntries = Array.isArray(data)
-            ? data.map(normalizeJournalEntry).filter((entry) => getEntrySlug(entry))
-            : []
-
-          setEntries(mergeJournalEntries(staticJournalEntries, publishedEntries))
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.warn('Supabase project_journal fallback:', error)
-        if (isMounted) {
-          setEntries(staticJournalEntries)
-          setIsLoading(false)
-        }
-      }
-    }
-
-    loadJournalEntries()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   if (slug && selectedEntry) {
     const contentParagraphs = renderContent(selectedEntry.content || selectedEntry.summary || '')
@@ -236,8 +118,8 @@ function ProjectJournal() {
           <h1 id="journal-title">Proje Günlüğü</h1>
         </div>
         <p>
-          Geliştirme notları, deneme çıktıları ve proje ilerleme kayıtları bu bölümde
-          listelenecek.
+          Rüzgâr türbini analizleri, CFD, OpenFAST, URANS ve rotor aerodinamiği üzerine
+          araştırma notları, deneme çıktıları ve proje ilerleme kayıtları.
         </p>
       </header>
 
@@ -249,7 +131,7 @@ function ProjectJournal() {
             <Link
               key={entry.slug}
               className="project-card journal-card"
-              to={`/proje-gunlugu/${entry.slug}`}
+              to={itemPath('/proje-gunlugu', entry)}
             >
               {entry.images.length > 0 && (
                 <img

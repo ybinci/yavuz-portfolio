@@ -1,5 +1,8 @@
 # React + Vite
 
+SEO, Vercel sunucu render yapısı, ortam değişkenleri ve Google Search Console
+adımları için [SEO rehberine](docs/SEO.md) bakın.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

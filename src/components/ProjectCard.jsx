@@ -1,9 +1,11 @@
-function ProjectCard({ project, index, onSelect }) {
+import { Link } from 'react-router-dom'
+import { itemPath } from '../lib/seo.js'
+
+function ProjectCard({ project, index }) {
   return (
-    <button
+    <Link
       className="project-card"
-      type="button"
-      onClick={() => onSelect(project.slug)}
+      to={itemPath('/projeler', project)}
       aria-label={`${project.title} projesini incele`}
     >
       <span className="project-number">{String(index + 1).padStart(2, '0')}</span>
@@ -17,7 +19,7 @@ function ProjectCard({ project, index, onSelect }) {
         <span className="project-card-action">Projeyi incele</span>
       </div>
       <span className="project-arrow" aria-hidden="true">↗</span>
-    </button>
+    </Link>
   )
 }
 

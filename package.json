@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --configLoader native",
+    "build": "node scripts/build.mjs",
+    "test:seo": "node tests/seo.test.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
