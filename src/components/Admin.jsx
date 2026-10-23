@@ -30,6 +30,7 @@ const initialJournalForm = {
   content: '',
   tags: '',
   images: '',
+  pdfUrl: '',
   relatedProjectSlug: '',
   status: 'draft',
 }
@@ -68,9 +69,36 @@ function createJournalPayload(journalForm) {
     content: journalForm.content.trim(),
     tags: splitListField(journalForm.tags),
     images: splitListField(journalForm.images),
+    pdf_url: journalForm.pdfUrl.trim() || null,
     related_project_slug: journalForm.relatedProjectSlug.trim() || null,
     status: journalForm.status,
   }
+}
+
+function createJournalForm(entry) {
+  const listToText = (value) => Array.isArray(value) ? value.join('\n') : value ?? ''
+
+  return {
+    title: entry.title ?? '',
+    slug: entry.slug ?? '',
+    projectName: entry.project_name ?? '',
+    date: entry.date ?? '',
+    summary: entry.summary ?? '',
+    content: entry.content ?? '',
+    tags: listToText(entry.tags),
+    images: listToText(entry.images),
+    pdfUrl: entry.pdf_url ?? '',
+    relatedProjectSlug: entry.related_project_slug ?? '',
+    status: entry.status ?? 'draft',
+  }
+}
+
+function saveJournalEntry(client, payload, entryId) {
+  const query = client.from('project_journal')
+
+  return entryId === null
+    ? query.insert([payload])
+    : query.update(payload).eq('id', entryId).select('id').single()
 }
 
 function getSupabaseErrorMessage(error) {
@@ -96,6 +124,11 @@ function Admin() {
   const [activeSection, setActiveSection] = useState('projects')
   const [projectForm, setProjectForm] = useState(initialProjectForm)
   const [journalForm, setJournalForm] = useState(initialJournalForm)
+  const [journalEntries, setJournalEntries] = useState([])
+  const [editingJournalId, setEditingJournalId] = useState(null)
+  const [journalRevision, setJournalRevision] = useState(0)
+  const [isLoadingJournalEntries, setIsLoadingJournalEntries] = useState(false)
+  const [journalLoadError, setJournalLoadError] = useState('')
   const [previewProject, setPreviewProject] = useState(null)
   const [previewJournal, setPreviewJournal] = useState(null)
   const [projectSubmitStatus, setProjectSubmitStatus] = useState({ type: '', message: '' })
@@ -145,6 +178,9 @@ function Admin() {
       if (!nextSession) {
         setProjectForm(initialProjectForm)
         setJournalForm(initialJournalForm)
+        setJournalEntries([])
+        setEditingJournalId(null)
+        setJournalLoadError('')
         setPreviewProject(null)
         setPreviewJournal(null)
         setProjectSubmitStatus({ type: '', message: '' })
@@ -157,6 +193,33 @@ function Admin() {
       authListener.subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || activeSection !== 'journal' || !supabase) return undefined
+
+    let isMounted = true
+    setIsLoadingJournalEntries(true)
+    setJournalLoadError('')
+
+    async function loadJournalEntries() {
+      try {
+        const { data, error } = await supabase
+          .from('project_journal')
+          .select('*')
+          .order('date', { ascending: false })
+
+        if (error) throw error
+        if (isMounted) setJournalEntries(Array.isArray(data) ? data : [])
+      } catch (error) {
+        if (isMounted) setJournalLoadError(getSupabaseErrorMessage(error))
+      } finally {
+        if (isMounted) setIsLoadingJournalEntries(false)
+      }
+    }
+
+    loadJournalEntries()
+    return () => { isMounted = false }
+  }, [isAuthenticated, activeSection, journalRevision])
 
   const updateAuthForm = (event) => {
     const { name, value } = event.target
@@ -171,6 +234,14 @@ function Admin() {
   const updateJournalForm = (event) => {
     const { name, value } = event.target
     setJournalForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const selectJournalEntry = (event) => {
+    const entry = journalEntries.find((item) => String(item.id) === event.target.value)
+    setEditingJournalId(entry?.id ?? null)
+    setJournalForm(entry ? createJournalForm(entry) : initialJournalForm)
+    setPreviewJournal(null)
+    setJournalSubmitStatus({ type: '', message: '' })
   }
 
   const handleLogin = async (event) => {
@@ -311,17 +382,19 @@ function Admin() {
     setIsSavingJournal(true)
 
     try {
-      const { error } = await supabase
-        .from('project_journal')
-        .insert([journalPayload])
+      const { error } = await saveJournalEntry(supabase, journalPayload, editingJournalId)
 
       if (error) throw error
 
       setJournalSubmitStatus({
         type: 'success',
-        message: 'Günlük yazısı başarıyla kaydedildi.',
+        message: editingJournalId === null
+          ? 'Günlük yazısı başarıyla kaydedildi.'
+          : 'Günlük yazısı başarıyla güncellendi.',
       })
       setJournalForm(initialJournalForm)
+      setEditingJournalId(null)
+      setJournalRevision((current) => current + 1)
       setPreviewJournal(journalPayload)
     } catch (error) {
       setJournalSubmitStatus({
@@ -601,9 +674,32 @@ function Admin() {
           ) : (
             <>
               <p className="admin-helper-text">
-                Bu form Supabase project_journal tablosuna günlük/blog yazısı ekler.
-                Tags değeri virgül veya satır bazlı ayrıştırılarak text array olarak kaydedilir.
+                Yeni bir günlük yazısı ekleyin veya mevcut bir yazıyı seçerek düzenleyin.
               </p>
+
+              <div className="admin-project-form admin-journal-selector">
+                <label className="admin-field-wide">
+                  Düzenlenecek günlük yazısı
+                  <select
+                    value={editingJournalId ?? ''}
+                    onChange={selectJournalEntry}
+                    disabled={isLoadingJournalEntries || isSavingJournal}
+                  >
+                    <option value="">Yeni günlük yazısı ekle</option>
+                    {journalEntries.filter((entry) => entry.id != null).map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.title} ({entry.status})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {isLoadingJournalEntries && <p role="status">Günlük yazıları yükleniyor...</p>}
+                {journalLoadError && (
+                  <p className="admin-submit-message error" role="alert">
+                    Günlük yazıları yüklenemedi: {journalLoadError}
+                  </p>
+                )}
+              </div>
 
               <div className="admin-grid">
                 <form className="admin-project-form" onSubmit={handleJournalSubmit}>
@@ -686,6 +782,16 @@ function Admin() {
                       rows="5"
                     />
                   </label>
+                  <label className="admin-field-wide">
+                    PDF Raporu Linki
+                    <input
+                      name="pdfUrl"
+                      type="url"
+                      value={journalForm.pdfUrl}
+                      onChange={updateJournalForm}
+                      placeholder="https://proje.supabase.co/storage/v1/object/public/project-files/rapor.pdf"
+                    />
+                  </label>
                   <label>
                     related_project_slug
                     <input
@@ -716,13 +822,17 @@ function Admin() {
                       type="submit"
                       disabled={isSavingJournal}
                     >
-                      {isSavingJournal ? 'Kaydediliyor...' : 'Günlük Yazısını Kaydet'}
+                      {isSavingJournal ? 'Kaydediliyor...' : (
+                        editingJournalId === null ? 'Günlük Yazısını Kaydet' : 'Günlük Yazısını Güncelle'
+                      )}
                     </button>
                     <button
                       className="button button-outline"
                       type="button"
+                      disabled={isSavingJournal}
                       onClick={() => {
                         setJournalForm(initialJournalForm)
+                        setEditingJournalId(null)
                         setPreviewJournal(null)
                         setJournalSubmitStatus({ type: '', message: '' })
                       }}

@@ -31,6 +31,9 @@ function normalizeJournalEntry(entry) {
     content: entry.content ?? entry.description ?? '',
     tags: toArray(entry.tags),
     images: toArray(entry.images),
+    pdfUrl: typeof (entry.pdf_url ?? entry.pdfUrl) === 'string'
+      ? (entry.pdf_url ?? entry.pdfUrl).trim()
+      : '',
     relatedProjectSlug: entry.related_project_slug ?? entry.relatedProjectSlug ?? null,
     status: entry.status,
     createdAt: entry.created_at ?? entry.createdAt ?? null,
@@ -171,13 +174,27 @@ function ProjectJournal() {
               {selectedEntry.tags.map((tag) => <li key={tag}>{tag}</li>)}
             </ul>
           )}
-          {selectedEntry.relatedProjectSlug && (
-            <Link
-              className="button button-primary"
-              to={`/projeler/${selectedEntry.relatedProjectSlug}`}
-            >
-              İlgili projeyi gör <span aria-hidden="true">↗</span>
-            </Link>
+          {(selectedEntry.pdfUrl || selectedEntry.relatedProjectSlug) && (
+            <div className="project-detail-actions" aria-label="Günlük bağlantıları">
+              {selectedEntry.pdfUrl && (
+                <a
+                  className="button button-primary"
+                  href={selectedEntry.pdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Araştırma Raporunu Görüntüle (PDF) <span aria-hidden="true">↗</span>
+                </a>
+              )}
+              {selectedEntry.relatedProjectSlug && (
+                <Link
+                  className="button button-primary"
+                  to={`/projeler/${selectedEntry.relatedProjectSlug}`}
+                >
+                  İlgili projeyi gör <span aria-hidden="true">↗</span>
+                </Link>
+              )}
+            </div>
           )}
         </article>
       </section>
