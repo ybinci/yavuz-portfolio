@@ -42,6 +42,7 @@ export function createSitemapHandler({ loadContent = loadPublicContent, buildXml
       response.statusCode = 200
       response.setHeader('Content-Type', 'application/xml; charset=utf-8')
       response.setHeader('X-Sitemap-Source', source)
+      logger.info?.(JSON.stringify({ event: 'sitemap_served', requestId, source }))
       response.end(request.method === 'HEAD' ? undefined : xml)
     } catch (error) {
       // Error messages/causes may contain request URLs or credentials. Log safe frames only.

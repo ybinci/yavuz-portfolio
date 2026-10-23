@@ -14,6 +14,15 @@ export default async function handler(request, response) {
   try {
     const url = new URL(request.url, SITE_URL)
     const path = normalizePath(url.searchParams.get('path') || url.pathname)
+    if (path === '/api' || path.startsWith('/api/') || /^\/sitemap(?:-[^/]+)?\.xml$/.test(path)) {
+      console.error(JSON.stringify({ event: 'reserved_route_reached_renderer', path }))
+      response.statusCode = 404
+      response.setHeader('Content-Type', 'text/plain; charset=utf-8')
+      response.setHeader('Cache-Control', 'no-store')
+      response.setHeader('X-Robots-Tag', 'noindex')
+      response.end(request.method === 'HEAD' ? undefined : 'This route must not be served by the HTML renderer.')
+      return
+    }
     const admin = path === '/admin' || path.startsWith('/admin/')
     const content = admin ? getStaticContent() : await loadPublicContent({
       url: process.env.VITE_SUPABASE_URL,

@@ -1,17 +1,36 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
     "api/render.js": { "includeFiles": "dist-ssr/**", "maxDuration": 30 },
     "api/sitemap.js": { "maxDuration": 30 }
   },
-  "rewrites": [
+  "headers": [
     {
       "source": "/sitemap.xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
+        { "key": "X-Sitemap-Source", "value": "static-index" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/sitemap-snapshot.xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
+        { "key": "X-Sitemap-Source", "value": "build-snapshot" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/sitemap-live.xml",
       "destination": "/api/sitemap"
     },
     {
-      "source": "/:path*",
+      "source": "/:path((?!api(?:/|$)|assets(?:/|$)|sitemap(?:-[^/]+)?\\.xml(?:/|$)|robots\\.txt(?:/|$)).*)",
       "destination": "/api/render?path=/:path*"
     }
   ]

@@ -62,10 +62,17 @@ vermez; bu konularda özgün yayınlanmış içerik gerekir.
 
 ## Sitemap, robots ve taslaklar
 
-- `https://ybinci.com/sitemap.xml`, `api/sitemap.js` tarafından XML olarak üretilir.
-  Altı ana sayfa, korunmuş statik projeler ve Supabase'deki published projeler/
-  günlükler dahil edilir. Aynı slug tekrarlanmaz; yeni kayıtlar yeniden build
-  gerektirmeden eklenir. Supabase sorguları 1000 kayıt sınırı için sayfalanır.
+- `https://ybinci.com/sitemap.xml` build sırasında `dist/sitemap.xml` olarak
+  üretilen fiziksel bir `sitemapindex` dosyasıdır. React fallback'ine bağımlı değildir.
+  İki alt sitemap içerir:
+  - `/sitemap-snapshot.xml`: Altı ana sayfa ve korunmuş statik projeler/günlükler;
+    Supabase erişimine ihtiyaç duymayan fiziksel XML dosyasıdır.
+  - `/sitemap-live.xml`: `/api/sitemap` function'ının canlı `urlset` yanıtı;
+    build sonrasında eklenen published kayıtları da kapsar.
+  Aynı URL'nin alt sitemap'lerde görünmesi farklı canonical üretmez. Her urlset
+  kendi içinde slug tekrarlarını kaldırır. Supabase sorguları sayfalanır.
+  Supabase kayıtları yalnızca canlı alt sitemap'tedir; böylece bir yazı taslağa
+  alındığında URL'si eski build kopyasında kalmaz.
 - Son değişiklik tarihi yalnızca gerçek `updated_at`, `date` veya `created_at`
   verisi varsa eklenir; build tarihi lastmod olarak kullanılmaz.
 - Supabase erişilemiyorsa projelerde statik fallback sürer. Sitemap de statik
@@ -110,6 +117,7 @@ Sitemap gönderimi: https://support.google.com/webmasters/answer/7451001
 npm run build
 npm run test
 npm run lint
+npm run verify:sitemap -- https://ybinci.com
 ```
 
 SEO testleri gerçek Supabase verisine yazmaz. Mock published/taslak kayıtlarla
@@ -118,16 +126,24 @@ bağlantıları, sitemap, pagination ve HTML/JSON kaçışlarını doğrular.
 
 ## Sitemap hatalarını teşhis etme
 
-`/sitemap.xml` rewrite'ı `/api/sitemap` adresine gider; catch-all SSR rewrite'ından
-önce yer alır. Sitemap function'ı React/SSR paketine bağımlı değildir.
+`/sitemap.xml` ve `/sitemap-snapshot.xml` statik dosyaları filesystem'den sunulur.
+`/sitemap-live.xml` rewrite'ı `/api/sitemap` adresine gider. Catch-all SSR rewrite'ı
+`/api`, `/assets`, kök sitemap XML yolları ve `/robots.txt` için uygulanmaz.
+Sitemap function'ı React/SSR paketine bağımlı değildir. Sitemap/API yolu yanlış
+yönlendirmeyle HTML renderer'a ulaşırsa renderer HTML yerine HTTP 404/plain text
+verir ve `reserved_route_reached_renderer` log'u üretir.
 
 - `Content-Type: application/xml; charset=utf-8` ve HTTP 200: geçerli sitemap.
+- `/sitemap.xml` için `X-Sitemap-Source: static-index` beklenir.
+- `/sitemap-snapshot.xml` için `X-Sitemap-Source: build-snapshot` beklenir.
+- Aşağıdaki kaynak başlıkları `/sitemap-live.xml` ve `/api/sitemap` içindir:
 - `X-Sitemap-Source: complete`: iki Supabase tablosu da okundu.
 - `X-Sitemap-Source: partial`: bir tablo okunamadı; diğer tablo ve statik içerik var.
 - `X-Sitemap-Source: static`: dinamik tablolar okunamadı veya env eksik/hatalı;
   statik sitemap sunuldu.
 
 Vercel → proje → Logs bölümünde `/api/sitemap` function'ını filtreleyin.
+Başarılı istek `sitemap_served` olayı üretir.
 `sitemap_fallback` JSON log'unda tablo, `reason` ve HTTP durumunu inceleyin:
 `missing_configuration`, `invalid_configuration`, `http_error` (ör. 401/403/404),
 `network_error`, `timeout`, `invalid_json`, `invalid_response`.
@@ -138,3 +154,43 @@ Env için yalnızca var/yok bilgisi loglanır; URL, anahtar ve ham hata yanıtı
 hata türü ve stack konumları bulunur. Bu durum başarılı sitemap gibi gizlenmez.
 Düzeltmeyi deploy ettikten sonra `/sitemap.xml` yanıtını kontrol edin ve Search
 Console'da aynı sitemap URL'sini yeniden gönderin.
+
+## Production deployment doğrulaması
+
+HTML yanıtına sadece `application/xml` başlığı eklemek çözüm değildir; yanıt
+gövdesi de gerçek `sitemapindex` / `urlset` XML'i olmalıdır.
+
+1. Doğru Vercel projesini ve Production deployment'ını kontrol edin. Root Directory
+   bu `package.json`, `vercel.json` ve `api/` klasörünü içeren dizin olmalıdır.
+   Deployment'ın Source commit'i bu değişiklikleri içermelidir.
+2. Build Command `npm run build`, Output Directory `dist` olmalıdır. Build log'unda
+   `Sitemap index and snapshot generated in dist/.` görünmelidir. Deployment'ın
+   Functions listesinde `api/sitemap` ve `api/render` bulunmalıdır.
+3. Yeni deployment'ın production alias'ının gerçekten `ybinci.com` olduğunu
+   doğrulayın. Eski commit/yanlış proje/yanlış root ile yeni function kodu çalışmaz.
+4. Önce Preview URL'sini, sonra production'ı otomatik denetleyin:
+
+```sh
+npm run verify:sitemap -- https://PREVIEW-DEPLOYMENT.vercel.app
+npm run verify:sitemap -- https://ybinci.com
+```
+
+Bu komut root sitemap'i, index'in alt XML dosyalarını ve doğrudan `/api/sitemap`
+yanıtını GET ile kontrol eder. HTTP 200, application/xml, XML kök yapısı ve canlı
+function'ın `X-Sitemap-Request-Id` başlığını doğrular. HTML/yanlış content type/
+eksik function/hatalı durum kodunda exit code 1 üretir. Preview Deployment
+Protection etkinse doğrulamayı erişimi olan ortamdan çalıştırın.
+
+Windows'ta elle kontrol için:
+
+```sh
+curl.exe -i https://ybinci.com/sitemap.xml
+curl.exe -i https://ybinci.com/sitemap-live.xml
+curl.exe -i https://ybinci.com/api/sitemap
+```
+
+İlk yanıtın gövdesi `<?xml ...?><sitemapindex ...>`; diğer ikisinin gövdesi
+`<?xml ...?><urlset ...>` olmalıdır. `<!doctype html>` veya `<html>` olmamalıdır.
+Live/API isteklerindeki request ID'yi Vercel Logs'daki `sitemap_served` ile
+eşleştirerek function'ın gerçekten çalıştığını doğrulayın. Doğrulama PASS verdikten
+sonra Search Console'da aynı `https://ybinci.com/sitemap.xml` adresini yeniden gönderin.

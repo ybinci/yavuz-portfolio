@@ -4,7 +4,8 @@ import { createServer } from 'node:http'
 import { once } from 'node:events'
 import test from 'node:test'
 import { loadPublicContent, getStaticContent, mergePublished, normalizeProject } from '../src/lib/publicContent.js'
-import { createSitemap, resolveSeo, renderSeoHead, serializeJson, pageMetadata } from '../src/lib/seo.js'
+import { createSitemap, createSitemapIndex, resolveSeo, renderSeoHead, serializeJson, pageMetadata } from '../src/lib/seo.js'
+import { verifySitemapDeployment } from '../scripts/verify-sitemap.mjs'
 import { renderPage } from '../dist-ssr/entry-server.js'
 import renderHandler from '../api/render.js'
 import sitemapHandler, { createSitemapHandler } from '../api/sitemap.js'
@@ -165,8 +166,24 @@ test('HTTP handlers return SSR, noindex headers, live sitemap, HEAD, outage prot
   process.env.VITE_SUPABASE_URL = publicUrl
   process.env.VITE_SUPABASE_ANON_KEY = 'test-public-key'
   globalThis.fetch = mockDatabase()
+  const config = JSON.parse(await readFile('vercel.json', 'utf8'))
+  const staticXml = new Map(await Promise.all(['/sitemap.xml', '/sitemap-snapshot.xml'].map(async (path) => (
+    [path, await readFile(`dist${path}`, 'utf8')]
+  ))))
+  const catchAll = config.rewrites.find((route) => route.source.startsWith('/:path('))
+  const matcher = new RegExp(`^/${catchAll.source.slice('/:path'.length)}$`)
   const server = createServer((request, response) => {
-    const handler = request.url === '/sitemap.xml' ? sitemapHandler : renderHandler
+    const path = new URL(request.url, 'http://localhost').pathname
+    if (staticXml.has(path)) {
+      for (const header of config.headers.find((route) => route.source === path).headers) response.setHeader(header.key, header.value)
+      response.statusCode = 200
+      response.end(request.method === 'HEAD' ? undefined : staticXml.get(path))
+      return
+    }
+    const rewrite = config.rewrites.find((route) => route.source === path)
+    const handler = rewrite?.destination === '/api/sitemap' || path === '/api/sitemap' ? sitemapHandler
+      : path === '/api/render' || matcher.test(path) ? renderHandler : null
+    if (!handler) { response.statusCode = 404; response.end('Not found'); return }
     Promise.resolve(handler(request, response)).catch((error) => { response.statusCode = 500; response.end(error.message) })
   })
   server.listen(0, '127.0.0.1')
@@ -183,7 +200,24 @@ test('HTTP handlers return SSR, noindex headers, live sitemap, HEAD, outage prot
     const sitemap = await originalFetch(`${origin}/sitemap.xml`)
     assert.equal(sitemap.status, 200)
     assert.ok(sitemap.headers.get('content-type').includes('application/xml'))
-    assert.ok((await sitemap.text()).includes(journal.slug))
+    const indexXml = await sitemap.text()
+    assert.ok(indexXml.includes('<sitemapindex ') && !indexXml.includes('<html'))
+    assert.ok(indexXml.includes('https://ybinci.com/sitemap-live.xml'))
+    const snapshot = await originalFetch(`${origin}/sitemap-snapshot.xml`)
+    assert.equal(snapshot.status, 200)
+    assert.ok((await snapshot.text()).includes('cift-rotorlu-dengeleme-sistemi'))
+    const live = await originalFetch(`${origin}/sitemap-live.xml`)
+    assert.equal(live.status, 200)
+    assert.ok((await live.text()).includes(journal.slug))
+    const verification = await verifySitemapDeployment(origin, { fetchImpl: originalFetch, report: () => {} })
+    assert.equal(verification.length, 3)
+    assert.ok(verification.some((result) => result.url.endsWith('/sitemap-live.xml') && result.requestId))
+    const apiMissing = await originalFetch(`${origin}/api/missing`)
+    assert.equal(apiMissing.status, 404)
+    assert.ok(!(await apiMissing.text()).includes('<html'))
+    const misplaced = await originalFetch(`${origin}/api/render?path=/sitemap.xml`)
+    assert.equal(misplaced.status, 404)
+    assert.ok(!(await misplaced.text()).includes('<html'))
     const head = await originalFetch(`${origin}/proje-gunlugu/urans-openfast`, { method: 'HEAD' })
     assert.equal(head.status, 200)
     assert.equal(await head.text(), '')
@@ -191,7 +225,7 @@ test('HTTP handlers return SSR, noindex headers, live sitemap, HEAD, outage prot
     assert.equal(draft.status, 404)
     assert.ok(draft.headers.get('x-robots-tag').includes('noindex'))
     globalThis.fetch = mockDatabase({ fail: true })
-    const unavailable = await originalFetch(`${origin}/sitemap.xml`)
+    const unavailable = await originalFetch(`${origin}/sitemap-live.xml`)
     assert.equal(unavailable.status, 200)
     assert.equal(unavailable.headers.get('x-sitemap-source'), 'static')
     assert.ok(unavailable.headers.get('content-type').includes('application/xml'))
@@ -210,6 +244,46 @@ test('HTTP handlers return SSR, noindex headers, live sitemap, HEAD, outage prot
     if (originalKey === undefined) delete process.env.VITE_SUPABASE_ANON_KEY
     else process.env.VITE_SUPABASE_ANON_KEY = originalKey
     await new Promise((resolve) => server.close(resolve))
+  }
+})
+
+test('physical sitemap index/snapshot exist; SSR rewrite excludes sitemap, API and asset paths', async () => {
+  const config = JSON.parse(await readFile('vercel.json', 'utf8'))
+  assert.ok(!config.rewrites.some((route) => route.source === '/sitemap.xml'))
+  assert.equal(config.rewrites[0].source, '/sitemap-live.xml')
+  assert.equal(config.rewrites[0].destination, '/api/sitemap')
+  const catchAll = config.rewrites.find((route) => route.source.startsWith('/:path('))
+  const matcher = new RegExp(`^/${catchAll.source.slice('/:path'.length)}$`)
+  for (const path of ['/sitemap.xml', '/sitemap-live.xml', '/sitemap-snapshot.xml', '/api/sitemap', '/api/render', '/api/missing', '/assets/index.js', '/robots.txt']) {
+    assert.ok(!matcher.test(path), `${path} must not be handled by React SSR`)
+  }
+  for (const path of ['/', '/projeler', '/projeler/rotor', '/proje-gunlugu/test', '/admin', '/hakkimda']) {
+    assert.ok(matcher.test(path), `${path} must retain its SSR route`)
+  }
+  const index = await readFile('dist/sitemap.xml', 'utf8')
+  assert.equal(index, createSitemapIndex())
+  assert.equal((index.match(/<sitemap>/g) || []).length, 2)
+  const snapshot = await readFile('dist/sitemap-snapshot.xml', 'utf8')
+  assert.equal(snapshot, createSitemap(getStaticContent()))
+  assert.ok(snapshot.startsWith('<?xml ') && snapshot.includes('<urlset '))
+  assert.ok(!snapshot.includes('<html') && !snapshot.includes('/admin'))
+  for (const project of getStaticContent().projects) assert.ok(snapshot.includes(`/projeler/${project.slug}`))
+})
+
+test('deployment verifier rejects HTML at the root, live child or direct production function', async () => {
+  const html = '<!doctype html><html><head><title>React app</title></head></html>'
+  for (const htmlPath of ['/sitemap.xml', '/sitemap-live.xml', '/api/sitemap']) {
+    await assert.rejects(verifySitemapDeployment('https://ybinci.com', {
+      report: () => {},
+      fetchImpl: async (url) => {
+        const path = new URL(url).pathname
+        const body = path === htmlPath ? html : path === '/sitemap.xml' ? createSitemapIndex() : createSitemap(getStaticContent())
+        return new Response(body, { status: 200, headers: {
+          'content-type': path === htmlPath ? 'text/html; charset=utf-8' : 'application/xml; charset=utf-8',
+          ...(path === '/api/sitemap' || path === '/sitemap-live.xml' ? { 'x-sitemap-request-id': 'function-request' } : {}),
+        } })
+      },
+    }), htmlPath === '/api/sitemap' ? /production sitemap function/ : /expected application\/xml/)
   }
 })
 

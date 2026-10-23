@@ -135,3 +135,9 @@ export function createSitemap(content) {
   }).join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`
 }
+
+export function createSitemapIndex() {
+  const children = ['/sitemap-snapshot.xml', '/sitemap-live.xml']
+    .map((path) => `<sitemap><loc>${SITE_URL}${path}</loc></sitemap>`).join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children}\n</sitemapindex>`
+}

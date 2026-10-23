@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { build } from 'vite'
+import { createSitemap, createSitemapIndex } from '../src/lib/seo.js'
 
 await build({ configLoader: 'native' })
 const template = await readFile('dist/index.html', 'utf8')
@@ -19,3 +20,11 @@ const { getStaticContent, renderPage } = await import('../dist-ssr/entry-server.
 // The filesystem homepage remains useful on static preview hosts as well as Vercel.
 const home = renderPage('/', getStaticContent(), template, { refreshContent: true })
 await writeFile('dist/index.html', home.html)
+
+// Physical XML assets take precedence over SPA fallbacks on Vercel/static hosts.
+// The index also discovers live published content added after this build.
+// Keep changeable Supabase records in the live child so unpublishing is reflected
+// without leaving stale draft URLs in a build-time snapshot.
+await writeFile('dist/sitemap-snapshot.xml', createSitemap(getStaticContent()))
+await writeFile('dist/sitemap.xml', createSitemapIndex())
+console.info('Sitemap index and snapshot generated in dist/.')
