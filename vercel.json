@@ -3,7 +3,7 @@
   "outputDirectory": "dist",
   "functions": {
     "api/render.js": { "includeFiles": "dist-ssr/**", "maxDuration": 30 },
-    "api/sitemap.js": { "includeFiles": "dist-ssr/**", "maxDuration": 30 }
+    "api/sitemap.js": { "maxDuration": 30 }
   },
   "rewrites": [
     {

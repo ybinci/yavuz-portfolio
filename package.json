@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build.mjs",
+    "test": "node tests/seo.test.mjs",
     "test:seo": "node tests/seo.test.mjs",
     "lint": "oxlint",
     "preview": "vite preview"

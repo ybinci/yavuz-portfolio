@@ -76,6 +76,15 @@ export function mergePublished(staticItems, remoteItems, normalize, journal = fa
 }
 
 // Public reads never use an admin session or a service/secret key, including during SSR.
+class PublicContentError extends Error {
+  constructor(reason, status) {
+    super(`Public content unavailable: ${reason}`)
+    this.name = 'PublicContentError'
+    this.reason = reason
+    this.status = status
+  }
+}
+
 async function fetchPublished(table, { url, anonKey, fetchImpl }) {
   const rows = []
   const pageSize = 1000
@@ -86,21 +95,40 @@ async function fetchPublished(table, { url, anonKey, fetchImpl }) {
     endpoint.searchParams.set('order', 'id.asc')
     endpoint.searchParams.set('offset', String(offset))
     endpoint.searchParams.set('limit', String(pageSize))
-    const response = await fetchImpl(endpoint, {
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!response.ok) throw new Error(`Public ${table} request failed (${response.status})`)
-    const page = await response.json()
-    if (!Array.isArray(page)) throw new Error(`Invalid ${table} response`)
+    let response
+    try {
+      response = await fetchImpl(endpoint, {
+        headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+        signal: AbortSignal.timeout(8000),
+      })
+    } catch (error) {
+      throw new PublicContentError(['TimeoutError', 'AbortError'].includes(error?.name) ? 'timeout' : 'network_error')
+    }
+    if (!response.ok) throw new PublicContentError('http_error', response.status)
+    let page
+    try { page = await response.json() }
+    catch { throw new PublicContentError('invalid_json', response.status) }
+    if (!Array.isArray(page) || page.some((item) => !item || typeof item !== 'object')) {
+      throw new PublicContentError('invalid_response', response.status)
+    }
     rows.push(...page)
     if (page.length < pageSize) return rows
   }
 }
 
-export async function loadPublicContent({ url, anonKey, fetchImpl = fetch } = {}) {
+export async function loadPublicContent({ url, anonKey, fetchImpl = fetch, onUnavailable } = {}) {
   const content = getStaticContent()
-  if (!url || !anonKey) return content
+  if (!url || !anonKey) {
+    onUnavailable?.({ reason: 'missing_configuration', hasUrl: Boolean(url), hasAnonKey: Boolean(anonKey) })
+    return content
+  }
+  try {
+    const endpoint = new URL(url)
+    if (!['https:', 'http:'].includes(endpoint.protocol)) throw new Error('Invalid protocol')
+  } catch {
+    onUnavailable?.({ reason: 'invalid_configuration', hasUrl: Boolean(url), hasAnonKey: Boolean(anonKey) })
+    return content
+  }
   const results = await Promise.allSettled([
     fetchPublished('projects', { url, anonKey, fetchImpl }),
     fetchPublished('project_journal', { url, anonKey, fetchImpl }),
@@ -112,7 +140,18 @@ export async function loadPublicContent({ url, anonKey, fetchImpl = fetch } = {}
         index === 0 ? normalizeProject : normalizeJournalEntry, index === 1)
       content.available[key] = true
     } else {
-      console.warn(`Public ${key} unavailable; using static content.`)
+      // Only known upstream failures are recoverable. Programming/runtime faults
+      // must reach the caller's error boundary rather than masquerade as success.
+      if (!(result.reason instanceof PublicContentError)) throw result.reason
+      if (onUnavailable) {
+        onUnavailable({
+          table: index === 0 ? 'projects' : 'project_journal',
+          reason: result.reason.reason,
+          ...(result.reason.status != null ? { status: result.reason.status } : {}),
+        })
+      } else {
+        console.warn(`Public ${key} unavailable; using static content.`)
+      }
     }
   })
   return content

@@ -68,9 +68,11 @@ vermez; bu konularda özgün yayınlanmış içerik gerekir.
   gerektirmeden eklenir. Supabase sorguları 1000 kayıt sınırı için sayfalanır.
 - Son değişiklik tarihi yalnızca gerçek `updated_at`, `date` veya `created_at`
   verisi varsa eklenir; build tarihi lastmod olarak kullanılmaz.
-- Supabase erişilemiyorsa projelerde statik fallback sürer. Sitemap, yayınları
-  yanlışlıkla listeden düşürmek yerine geçici `503` / `Retry-After` döndürür.
-  Dinamik detay erişim hatalarında da 503; gerçekten bulunmayan detayda 404 gelir.
+- Supabase erişilemiyorsa projelerde statik fallback sürer. Sitemap de statik
+  sayfaları/projeleri ve erişilen tablolardaki published kayıtları içeren geçerli
+  XML'i HTTP 200 ile sunar. İki tablo da okununca tam liste otomatik geri gelir.
+  Beklenmeyen XML üretim/sunucu hataları HTTP 500 döner. Dinamik detay erişim
+  hatalarında 503; gerçekten bulunmayan detayda 404 davranışı korunur.
 - `/admin` HTML'inde `noindex, nofollow` ve HTTP `X-Robots-Tag` bulunur; sitemap'e
   eklenmez. `robots.txt` admin taramasını engellemez, böylece Google noindex
   işaretini okuyabilir. Noindex, erişim güvenliği yerine geçmez; Auth korunur.
@@ -106,10 +108,33 @@ Sitemap gönderimi: https://support.google.com/webmasters/answer/7451001
 
 ```sh
 npm run build
-npm run test:seo
+npm run test
 npm run lint
 ```
 
 SEO testleri gerçek Supabase verisine yazmaz. Mock published/taslak kayıtlarla
 birleştirme, sıralama, fallback, HTML/HTTP render, meta/canonical, galeri/PDF
 bağlantıları, sitemap, pagination ve HTML/JSON kaçışlarını doğrular.
+
+## Sitemap hatalarını teşhis etme
+
+`/sitemap.xml` rewrite'ı `/api/sitemap` adresine gider; catch-all SSR rewrite'ından
+önce yer alır. Sitemap function'ı React/SSR paketine bağımlı değildir.
+
+- `Content-Type: application/xml; charset=utf-8` ve HTTP 200: geçerli sitemap.
+- `X-Sitemap-Source: complete`: iki Supabase tablosu da okundu.
+- `X-Sitemap-Source: partial`: bir tablo okunamadı; diğer tablo ve statik içerik var.
+- `X-Sitemap-Source: static`: dinamik tablolar okunamadı veya env eksik/hatalı;
+  statik sitemap sunuldu.
+
+Vercel → proje → Logs bölümünde `/api/sitemap` function'ını filtreleyin.
+`sitemap_fallback` JSON log'unda tablo, `reason` ve HTTP durumunu inceleyin:
+`missing_configuration`, `invalid_configuration`, `http_error` (ör. 401/403/404),
+`network_error`, `timeout`, `invalid_json`, `invalid_response`.
+Env için yalnızca var/yok bilgisi loglanır; URL, anahtar ve ham hata yanıtı yazılmaz.
+`X-Sitemap-Request-Id` yanıt başlığını log'daki `requestId` ile eşleştirebilirsiniz.
+
+`sitemap_generation_failed` bir sunucu/üretim hatasıdır: HTTP 500 döner; log'da
+hata türü ve stack konumları bulunur. Bu durum başarılı sitemap gibi gizlenmez.
+Düzeltmeyi deploy ettikten sonra `/sitemap.xml` yanıtını kontrol edin ve Search
+Console'da aynı sitemap URL'sini yeniden gönderin.
