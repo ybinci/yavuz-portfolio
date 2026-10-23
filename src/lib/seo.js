@@ -63,7 +63,9 @@ export function resolveSeo(pathname, content, isLoading = false) {
       }
     }
     if (isLoading || !content.available[key]) {
-      return { ...base, title: `İçerik yüklenemedi | ${AUTHOR}`, description: 'İçerik şu anda yüklenemiyor. Lütfen tekrar deneyin.', robots: 'noindex, follow', status: 503 }
+      // A temporary upstream outage is not evidence that an existing URL should
+      // be removed from search. The 503 status itself tells crawlers to retry.
+      return { ...base, title: `İçerik yüklenemedi | ${AUTHOR}`, description: 'İçerik şu anda yüklenemiyor. Lütfen tekrar deneyin.', robots: 'index, follow', status: 503 }
     }
   }
   return { ...base, title: `Sayfa bulunamadı | ${AUTHOR}`, description: 'İstenen içerik bulunamadı.', robots: 'noindex, follow', status: 404 }

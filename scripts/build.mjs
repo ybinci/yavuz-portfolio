@@ -9,6 +9,9 @@ for (const marker of ['<!--seo-head-->', '<!--app-html-->', '<!--public-content-
 }
 await build({
   configLoader: 'native',
+  // A self-contained SSR artifact avoids production tracing missing conditional
+  // React Router imports such as cookie/set-cookie-parser. Node builtins remain external.
+  ssr: { noExternal: true },
   build: {
     ssr: 'src/entry-server.js',
     outDir: 'dist-ssr',

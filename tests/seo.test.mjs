@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
+import { basename, dirname, join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { loadPublicContent, getStaticContent, mergePublished, normalizeProject } from '../src/lib/publicContent.js'
 import { createSitemap, createSitemapIndex, resolveSeo, renderSeoHead, serializeJson, pageMetadata } from '../src/lib/seo.js'
 import { verifySitemapDeployment } from '../scripts/verify-sitemap.mjs'
 import { renderPage } from '../dist-ssr/entry-server.js'
-import renderHandler from '../api/render.js'
+import renderHandler, { createRenderHandler } from '../api/render.js'
 import sitemapHandler, { createSitemapHandler } from '../api/sitemap.js'
 
 const publicUrl = 'https://example.supabase.co'
@@ -424,4 +427,132 @@ test('sitemap HEAD has correct headers and no body, unsupported methods return 4
   const post = await runSitemap({ method: 'POST' })
   assert.equal(post.response.statusCode, 405)
   assert.equal(post.response.headers.allow, 'GET, HEAD')
+})
+
+const windJournalPath = '/proje-gunlugu/ruzgar-turbini-tarla-analizleri-arastirma-ozeti'
+
+async function windContent() {
+  const content = await fixtureContent()
+  content.journal = [{ ...content.journal[0], slug: windJournalPath.split('/').pop(),
+    title: 'Rüzgâr Türbini ve Rüzgâr Tarlası Analizleri: Yöntem ve Yazılım Araştırması' }]
+  return content
+}
+
+async function runRender(path, options = {}) {
+  const logs = { warnings: [], errors: [], responses: [] }
+  const handler = createRenderHandler({
+    loadContent: () => fixtureContent(),
+    logger: {
+      warn: (message) => logs.warnings.push(JSON.parse(message)),
+      error: (message) => logs.errors.push(JSON.parse(message)),
+      info: (message) => logs.responses.push(JSON.parse(message)),
+    },
+    ...options,
+  })
+  const response = sitemapResponse()
+  await handler({ url: path, method: 'GET' }, response)
+  return { response, logs }
+}
+
+test('requested published journal path returns HTTP 200, real SSR HTML and one correct canonical', async () => {
+  const content = await windContent()
+  const handler = createRenderHandler({ loadContent: async () => content })
+  const server = createServer((request, response) => handler(request, response))
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  try {
+    const response = await fetch(`http://127.0.0.1:${server.address().port}${windJournalPath}`)
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8')
+    assert.equal(response.headers.get('x-robots-tag'), null)
+    assert.ok(response.headers.get('x-ssr-request-id'))
+    const html = await response.text()
+    assert.ok(html.includes(content.journal[0].title))
+    assert.ok(html.includes(content.journal[0].content))
+    assert.ok(html.includes('class="journal-gallery"') && html.includes(`href="${pdfUrl}"`))
+    assert.equal((html.match(/rel="canonical"/g) || []).length, 1)
+    assert.ok(html.includes(`href="https://ybinci.com${windJournalPath}"`))
+    assert.ok(!html.includes('content="noindex'))
+  } finally { await new Promise((resolve) => server.close(resolve)) }
+})
+
+test('upstream outages use known static content but never fake a 200 for an unknown dynamic URL', async () => {
+  const unavailable = getStaticContent()
+  const staticPage = await runRender('/projeler/cift-rotorlu-dengeleme-sistemi', { loadContent: async () => unavailable })
+  assert.equal(staticPage.response.statusCode, 200)
+  assert.equal(staticPage.response.headers['x-robots-tag'], undefined)
+  const missingDuringOutage = await runRender(windJournalPath, { loadContent: async () => unavailable })
+  assert.equal(missingDuringOutage.response.statusCode, 503)
+  assert.equal(missingDuringOutage.response.headers['retry-after'], '60')
+  assert.equal(missingDuringOutage.response.headers['x-robots-tag'], undefined)
+  assert.ok(!missingDuringOutage.response.body.includes('content="noindex'))
+  const notFound = await runRender('/proje-gunlugu/actually-missing')
+  assert.equal(notFound.response.statusCode, 404)
+  assert.equal(notFound.response.headers['x-robots-tag'], 'noindex, follow')
+  const draft = await runRender('/proje-gunlugu/unpublished-note')
+  assert.equal(draft.response.statusCode, 404)
+})
+
+test('a projects-table failure cannot turn a successfully loaded journal page into 503/noindex', async () => {
+  const content = await windContent()
+  content.available.projects = false
+  const { response, logs } = await runRender(windJournalPath, { loadContent: async ({ onUnavailable }) => {
+    onUnavailable({ table: 'projects', reason: 'http_error', status: 503 })
+    return content
+  } })
+  assert.equal(response.statusCode, 200)
+  assert.equal(response.headers['x-robots-tag'], undefined)
+  assert.equal(logs.warnings[0].event, 'ssr_public_content_unavailable')
+  assert.equal(logs.warnings[0].failures[0].table, 'projects')
+  assert.equal(logs.errors.length, 0)
+})
+
+test('SSR module, template, data and rendering failures have separate diagnostic stages and HTTP 500', async () => {
+  const missingModule = Object.assign(new Error('Sensitive test-public-key'), { code: 'ERR_MODULE_NOT_FOUND' })
+  const missingFile = Object.assign(new Error('Sensitive test-public-key'), { code: 'ENOENT' })
+  for (const [stage, options] of [
+    ['renderer_load', { loadRenderer: async () => { throw missingModule } }],
+    ['template_load', { loadTemplate: async () => { throw missingFile } }],
+    ['content_load', { loadContent: async () => { throw new TypeError('Sensitive test-public-key') } }],
+    ['render', { loadTemplate: async () => '<html>Wrong template</html>' }],
+  ]) {
+    const { response, logs } = await runRender(windJournalPath, options)
+    assert.equal(response.statusCode, 500)
+    assert.equal(response.headers['x-robots-tag'], undefined)
+    assert.equal(logs.errors[0].event, 'ssr_error')
+    assert.equal(logs.errors[0].stage, stage)
+    assert.equal(logs.errors[0].requestId, response.headers['x-ssr-request-id'])
+    assert.ok(!JSON.stringify(logs).includes('test-public-key'))
+  }
+})
+
+test('deployment SSR artifact runs without node_modules and without depending on process.cwd()', async () => {
+  const config = JSON.parse(await readFile('vercel.json', 'utf8'))
+  assert.equal(config.functions['api/render.js'].includeFiles, 'dist-ssr/**')
+  const deployment = await mkdtemp(join(tmpdir(), 'ybinci-ssr-artifact-'))
+  const originalCwd = process.cwd()
+  try {
+    const files = ['api/render.js', 'src/lib/publicContent.js', 'src/lib/seo.js',
+      'src/data/projects.js', 'src/data/projectJournal.js', 'package.json',
+      'dist-ssr/entry-server.js', 'dist-ssr/template.html']
+    for (const file of files) {
+      const destination = join(deployment, file)
+      await mkdir(dirname(destination), { recursive: true })
+      await copyFile(file, destination)
+    }
+    const content = await windContent()
+    const { createRenderHandler: standaloneHandler } = await import(pathToFileURL(join(deployment, 'api/render.js')).href)
+    const handler = standaloneHandler({ loadContent: async () => content, logger: { warn() {}, error() {}, info() {} } })
+    const response = sitemapResponse()
+    process.chdir(tmpdir())
+    await handler({ url: windJournalPath, method: 'GET' }, response)
+    assert.equal(response.statusCode, 200)
+    assert.ok(response.body.includes(content.journal[0].title))
+    assert.equal(response.headers['x-robots-tag'], undefined)
+  } finally {
+    process.chdir(originalCwd)
+    assert.equal(dirname(deployment), resolve(tmpdir()))
+    assert.ok(basename(deployment).startsWith('ybinci-ssr-artifact-'))
+    await rm(deployment, { recursive: true, force: true })
+  }
 })
