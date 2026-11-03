@@ -1,5 +1,8 @@
 # ybinci.com SEO ve yayınlama
 
+Günlük detaylarında 5xx, SSR artifact'leri ve Vercel log ayrımı için
+[SSR teşhis rehberine](SSR.md) bakın.
+
 ## Render mimarisi
 
 Mevcut React Router uygulaması korunur. Vite build artık tarayıcı paketiyle birlikte

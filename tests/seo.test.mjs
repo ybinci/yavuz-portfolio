@@ -508,8 +508,8 @@ test('a projects-table failure cannot turn a successfully loaded journal page in
 })
 
 test('SSR module, template, data and rendering failures have separate diagnostic stages and HTTP 500', async () => {
-  const missingModule = Object.assign(new Error('Sensitive test-public-key'), { code: 'ERR_MODULE_NOT_FOUND' })
-  const missingFile = Object.assign(new Error('Sensitive test-public-key'), { code: 'ENOENT' })
+  const missingModule = Object.assign(new Error("Cannot find package 'cookie' imported from react-router; Sensitive test-public-key"), { code: 'ERR_MODULE_NOT_FOUND' })
+  const missingFile = Object.assign(new Error('Sensitive test-public-key'), { code: 'ENOENT', path: '/var/task/dist-ssr/template.html' })
   for (const [stage, options] of [
     ['renderer_load', { loadRenderer: async () => { throw missingModule } }],
     ['template_load', { loadTemplate: async () => { throw missingFile } }],
@@ -522,6 +522,8 @@ test('SSR module, template, data and rendering failures have separate diagnostic
     assert.equal(logs.errors[0].event, 'ssr_error')
     assert.equal(logs.errors[0].stage, stage)
     assert.equal(logs.errors[0].requestId, response.headers['x-ssr-request-id'])
+    if (stage === 'renderer_load') assert.equal(logs.errors[0].missingModule, 'cookie')
+    if (stage === 'template_load') assert.equal(logs.errors[0].resource, 'template.html')
     assert.ok(!JSON.stringify(logs).includes('test-public-key'))
   }
 })

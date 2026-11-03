@@ -26,6 +26,9 @@ function safeError(error) {
   return {
     errorType: error?.name ?? 'UnknownError',
     code: typeof error?.code === 'string' ? error.code : undefined,
+    missingModule: error?.code === 'ERR_MODULE_NOT_FOUND'
+      ? error.message?.match(/Cannot find (?:package|module) ['"]([^'"]+)['"]/)?.[1]?.split(/[?#]/)[0] : undefined,
+    resource: error?.code === 'ENOENT' && typeof error.path === 'string' ? error.path.split(/[\\/]/).pop() : undefined,
     frames: typeof error?.stack === 'string'
       ? error.stack.split('\n').filter((line) => /^\s+at /.test(line)).slice(0, 6) : [],
   }
